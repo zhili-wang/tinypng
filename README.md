@@ -6,8 +6,10 @@
 
 
 ##### 下载：
-[Download the installer for Windows>>](https://github.com/zhili-wang/tinypng/releases)\
-[Download the installer for MacOS>>](https://github.com/zhili-wang/tinypng/releases)
+- [Windows x64 安装包](https://github.com/zhili-wang/tinypng/releases/download/v1.1.0/TinyPNG-Windows-x64-1.1.0.exe)
+- [Windows x64 免安装版](https://github.com/zhili-wang/tinypng/releases/download/v1.1.0/TinyPNG-Windows-x64-1.1.0.zip)
+- [macOS 通用安装包（Intel / Apple Silicon）](https://github.com/zhili-wang/tinypng/releases/download/v1.1.0/TinyPNG-macOS-universal-1.1.0.dmg)
+- [查看全部版本](https://github.com/zhili-wang/tinypng/releases)
 
 ### 新版功能
 
@@ -20,19 +22,6 @@
 <img src="./assets/ui-preview.png" width="900px" />
 
 单独添加图片时保存到原路径；添加文件夹时，可在设置中选择覆盖原文件或保存到同级 `_tiny` 目录。保存采用临时文件提交，写入失败时保留原文件，方便重试。
-
-### Screenshots
- 
-<img src="./assets/Screenshot3.png" width="600px" />  
-<img src="./assets/Screenshot1.png" width="600px" />
-<img src="./assets/Screenshot2.png" width="600px" />  
-
-
-##### MacOS版  
-
-<img src="./assets/mac2.jpeg" width="600px" />
-<img src="./assets/mac1.jpeg" width="600px" />
-
 
 ### 配置
 ~~TinyPNG Key是免费的，为了安装后可以直接用，软件源码中已有2个Key，安装后会随机配置一个作为使用。每个Key每月免费压缩为500次，若不够可以自己多申请几个（申请很简单，填写邮箱和昵称，便会收到邮件，根据邮件中的链接进入创建key即可）；~~  
@@ -50,11 +39,6 @@
   
  
  Remark: If the object you add is a folder, the software will automatically list all the image files contained within that folder recursively.
-
-### Comparisons
-以下是对电商项目的商品详情页图片压缩测试数据，无论是页面大小还是访问速度的提升都很显著  
-![截图](https://github.com/zhili-wang/tinypng/blob/master/assets/compared.png?raw=true)
-
 
 ##### 免责声明
 该仓库仅用于学习，如有商业用途，请购买官方的 pro 版：https://tinify.com/checkout/web-pro
@@ -80,7 +64,7 @@ make
 
 ### 安装包构建
 
-新版构建版本为 `1.1.0`。每次打包均使用新的构建目录，完整重新编译，不复用旧对象文件。GitHub Actions 中的 **Build installers** 可手动运行，生成 macOS 通用 DMG（Intel / Apple Silicon）和 Windows x64 安装 EXE、便携 ZIP；构建前会运行 SVG 渲染和失败项筛选检查。产物保存在 Actions 的 Artifacts 中，发布到 Releases 后可从上方下载链接获取。
+新版构建版本为 `1.1.0`。每次打包均使用新的构建目录，完整重新编译，不复用旧对象文件。GitHub Actions 中的 **Build installers** 可手动运行，生成 macOS 通用 DMG（Intel / Apple Silicon）和 Windows x64 安装 EXE、便携 ZIP；构建前会运行 SVG 渲染和失败项筛选检查。构建产物保存在 Actions 的 Artifacts 中；已发布的 `1.1.0` 安装包可从上方下载链接或 [Releases](https://github.com/zhili-wang/tinypng/releases/tag/v1.1.0) 获取。
 
 本地 macOS 构建需要完整 Qt SDK（含 Qt SVG 模块）：
 
