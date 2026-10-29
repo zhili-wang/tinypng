@@ -4,6 +4,7 @@
 #include <QRadioButton>
 #include <QCheckBox>
 #include <QSpinBox>
+#include <QButtonGroup>
 #include <QKeyEvent>
 #include "Config.h"
 
@@ -16,7 +17,7 @@ private slots:
 private:
     QRadioButton* webMode;
     QRadioButton* keyMode;
-    QLineEdit* mailInput;
+    QButtonGroup* themeMode;
     QLineEdit* keyInput;
     QLineEdit* proxyInput;
     QSpinBox* minSize;

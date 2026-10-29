@@ -1,8 +1,9 @@
 #include "Dispatcher.h"
+#include <QTimer>
 
-Dispatcher::Dispatcher(Console* output, MyTableView* table, QObject* parent)
+Dispatcher::Dispatcher(Console* output, MyTableView* table, QObject* parent, WorkerFactory factory)
     : QObject(parent), console(output), tableview(table), model(static_cast<TableModel*>(table->model())),
-      offset(0), activeWorkers(0), finishNum(0), failedNum(0), totalSize(0), savedSize(0), generation(0), running(false) {
+      offset(0), batchRemaining(0), workerFactory(factory), finishNum(0), failedNum(0), totalSize(0), savedSize(0), generation(0), running(false) {
     qRegisterMetaType<CompressResult>();
 }
 Dispatcher::~Dispatcher() { quit(); }
@@ -11,6 +12,8 @@ bool Dispatcher::isRunning() const { return running; }
 void Dispatcher::run(bool failedOnly) {
     if (running) return;
     taskRows.clear();
+    retries.clear();
+    assignments.clear();
     for (int row = 0; row < model->rowCount(); ++row) {
         if (model->getRow(row).needsCompression(failedOnly)) taskRows.append(row);
     }
@@ -27,14 +30,13 @@ void Dispatcher::run(bool failedOnly) {
     if (config.outputMode == OutputMode::NewDir && !outputRoot.isEmpty()) outputRoot += "_tiny";
     console->tip(failedOnly ? QString("重试 %1 个失败项").arg(taskRows.size()) : QString("开始压缩 %1 个文件").arg(taskRows.size()));
     elapsedTimer.start();
-    activeWorkers = qMin(taskRows.size(), qMax(1, qMin(QThread::idealThreadCount() * 2, 12)));
+    const int count = qMin(int(taskRows.size()), 10);
     tableview->setProcessingLocked(true);
     emit started();
     emit progressChanged(0, taskRows.size(), 0);
-    const int count = activeWorkers;
     for (int i = 0; i < count; ++i) {
         QThread* thread = new QThread(this);
-        Compress* worker = new Compress(config, outputRoot);
+        Compress* worker = workerFactory ? workerFactory(config, outputRoot) : new Compress(config, outputRoot);
         worker->moveToThread(thread);
         connect(thread, &QThread::finished, worker, &QObject::deleteLater);
         connect(worker, &Compress::finished, this, [this, worker, batch](const QVariant& result) {
@@ -43,23 +45,33 @@ void Dispatcher::run(bool failedOnly) {
         });
         workers.insert(worker, thread);
         thread->start();
-        nextTask(worker);
+    }
+    startBatch();
+}
+
+void Dispatcher::startBatch() {
+    if (!running) return;
+    if (offset >= taskRows.size()) {
+        const QString seconds = QString::number(elapsedTimer.elapsed() / 1000.0, 'f', 2);
+        const QString rate = QString::number(totalSize > 0 ? savedSize * 100.0 / totalSize : 0, 'f', 1);
+        console->info(QString("压缩完成：%1 个成功，%2 个失败 · %3 秒 · 节省 %4%")
+            .arg(finishNum - failedNum).arg(failedNum).arg(seconds, rate));
+        quit();
+        return;
+    }
+    batchRemaining = qMin(10, int(taskRows.size()) - offset);
+    console->tip(QString("第 %1 批 · %2 张并发 · 失败自动重试最多 2 次")
+        .arg(offset / 10 + 1).arg(batchRemaining));
+    int started = 0;
+    for (Compress* worker : workers.keys()) {
+        if (started++ >= batchRemaining) break;
+        startTask(worker, taskRows.at(offset++));
     }
 }
 
-void Dispatcher::nextTask(Compress* worker) {
+void Dispatcher::startTask(Compress* worker, int row) {
     if (!running) return;
-    if (offset >= taskRows.size()) {
-        if (--activeWorkers == 0) {
-            const QString seconds = QString::number(elapsedTimer.elapsed() / 1000.0, 'f', 2);
-            const QString rate = QString::number(totalSize > 0 ? savedSize * 100.0 / totalSize : 0, 'f', 1);
-            console->info(QString("压缩完成：%1 个成功，%2 个失败 · %3 秒 · 节省 %4%")
-                .arg(finishNum - failedNum).arg(failedNum).arg(seconds, rate));
-            quit();
-        }
-        return;
-    }
-    const int row = taskRows.at(offset++);
+    assignments.insert(worker, row);
     TableModelRow item = model->getRow(row);
     item.status = 1;
     item.thin_size = -1;
@@ -70,10 +82,23 @@ void Dispatcher::nextTask(Compress* worker) {
 
 void Dispatcher::doneTask(Compress* worker, const QVariant& variant) {
     const CompressResult result = variant.value<CompressResult>();
-    if (result.row < 0 || result.row >= model->rowCount()) return;
+    if (result.row < 0 || result.row >= model->rowCount() || assignments.value(worker, -1) != result.row) return;
     TableModelRow item = model->getRow(result.row);
-    ++finishNum;
     const QString displayPath = item.path.toHtmlEscaped();
+    if (result.errcode != 0 && retries.value(result.row) < 2) {
+        const int retry = retries.value(result.row) + 1;
+        retries.insert(result.row, retry);
+        console->tip(QString("%1 · %2 · %3 秒后自动重试 %4/2")
+            .arg(displayPath, result.errmsg.toHtmlEscaped()).arg(retry).arg(retry));
+        const quint64 batch = generation;
+        // Waiting retries retain their slot; paused callbacks must not start another request.
+        QTimer::singleShot(retry * 1000, this, [this, worker, result, batch]() {
+            if (running && generation == batch && assignments.value(worker, -1) == result.row) startTask(worker, result.row);
+        });
+        return;
+    }
+    assignments.remove(worker);
+    ++finishNum;
     if (result.errcode == 0) {
         item.status = 2;
         item.thin_size = result.size;
@@ -88,7 +113,7 @@ void Dispatcher::doneTask(Compress* worker, const QVariant& variant) {
     }
     model->replaceRow(result.row, item);
     emit progressChanged(finishNum, taskRows.size(), failedNum);
-    nextTask(worker);
+    if (--batchRemaining == 0) startBatch();
 }
 
 void Dispatcher::stopWorkers() {
@@ -103,6 +128,7 @@ void Dispatcher::stopWorkers() {
         delete thread;
     }
     workers.clear();
+    assignments.clear();
 }
 
 void Dispatcher::quit() {

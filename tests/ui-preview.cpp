@@ -1,69 +1,74 @@
-#include "WorkspaceUi.h"
-#include "QueueAppearance.h"
+#include "MainWindow.h"
+#include "SettingWindow.h"
+#include "Theme.h"
 #include <QApplication>
-#include <QStandardItemModel>
+#include <QTemporaryDir>
 #include <QDir>
+#include <QRadioButton>
+#include <QTimer>
+#include <QEventLoop>
 #include <iostream>
 int main(int argc, char** argv) {
-    QApplication app(argc,argv);
-    app.setStyle("Fusion");
-    QFont font("PingFang SC");
-    font.setPointSize(10);
-    app.setFont(font);
-    QMainWindow window;
-    window.setStyleSheet(WorkspaceAppearance::theme());
-    window.resize(1080,800);
-    const QDir output(argc > 1 ? QString::fromLocal8Bit(argv[1]) : QDir::tempPath());
-    QStandardItemModel model;
-    model.setHorizontalHeaderLabels({"文件路径", "原始大小", "压缩后", "节省比例", "状态"});
-    QStringList paths = {"images/hero-banner.png", "icons/brand-logo.svg", "photos/product-cover.webp", "images/navigation-icons.svg", "photos/lifestyle.jpg"};
-    QStringList before = {"1.8 MB", "24.6 KB", "862.4 KB", "38.2 KB", "2.1 MB"};
-    QStringList after = {"542.3 KB", "16.2 KB", "—", "—", "—"};
-    QStringList ratios = {"70.6%", "34.1%", "—", "—", "—"};
-    QStringList states = {"成功", "成功", "失败", "待压缩", "待压缩"};
-    for(int row=0;row<5;++row) {
-        QList<QStandardItem*> items;
-        for(const QString& value : {paths[row],before[row],after[row],ratios[row],states[row]}) items.append(new QStandardItem(value));
-        for(int col=1;col<5;++col) items[col]->setTextAlignment(Qt::AlignCenter);
-        items[4]->setData(row<2?2:row==2?-1:0,Qt::UserRole+1);
-        model.appendRow(items);
+    QApplication app(argc, argv);
+    QTemporaryDir preferences;
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, preferences.path());
+    configItem config{};
+    config.autoStart = false; config.maxsize = 5 * 1024 * 1024;
+    config.outputMode = OutputMode::Replace; config.tinyReqMode = TinyReqMode::Web;
+    config.themeMode = ThemeMode::Light; Config(nullptr).set(config);
+    QFont font("PingFang SC"); font.setPointSize(10); app.setFont(font);
+    QDir output(argc > 1 ? QString::fromLocal8Bit(argv[1]) : QDir::tempPath());
+    output.mkpath(".");
+    MainWindow window;
+    auto* model = static_cast<TableModel*>(window.table->model());
+    const QStringList paths = {"images/hero-banner.png", "icons/brand-logo.svg", "photos/product-cover.webp", "images/navigation-icons.svg", "photos/lifestyle.jpg"};
+    for (int i = 0; i < paths.size(); ++i) {
+        TableModelRow row{}; row.path = paths.at(i); row.size = i == 1 ? 24800 : 1800000;
+        row.status = i < 2 ? 2 : i == 2 ? -1 : 0;
+        row.thin_size = row.status == 2 ? row.size / 3 : -1;
+        model->addRow(row);
     }
-    QTableView* table = new QTableView;
-    table->setModel(&model);
-    QueueAppearance::configure(table);
-    QTextBrowser* console = new QTextBrowser;
-    console->setStyleSheet("QTextBrowser { background: white; color: #788b7f; border: 0; font-size: 12px; }");
-    console->append("已就绪 · PNG、JPG/JPEG、WebP 使用 TinyPNG 压缩，SVG 在本地精简。");
-    console->append("<span style='color:#2c8b5b'>1/5 · images/hero-banner.png · 已完成</span>");
-    console->append("<span style='color:#2c8b5b'>2/5 · icons/brand-logo.svg · 已完成</span>");
-    console->append("<span style='color:#b85e4d'>3/5 · photos/product-cover.webp · 请求超时，可点击“重试失败项”重试</span>");
-    WorkspaceUi ui;
-    ui.setup(&window,table,console);
-    ui.countLabel->setText("5");
-    ui.successLabel->setText("2");
-    ui.failedLabel->setText("1");
-    ui.savedLabel->setText("1.3 MB");
-    ui.retrybtn->setText("重试失败项 (1)");
-    ui.pausebtn->hide();
-    ui.progress->setRange(0,5);
-    ui.progress->setValue(3);
-    ui.progressLabel->setText("3 / 5 已处理 · 1 个失败");
+    window.console->info("1/5 · images/hero-banner.png · 已完成");
+    window.console->tip("photos/product-cover.webp · 请求失败 · 1 秒后自动重试 1/2");
+    window.console->error("3/5 · photos/product-cover.webp · 重试 2 次后仍失败");
+    auto capture = [&](QWidget* widget, const QString& name) {
+        QEventLoop settle; QTimer::singleShot(120, &settle, &QEventLoop::quit); settle.exec();
+        app.processEvents();
+        if (!widget->grab().save(output.filePath(name))) std::exit(1);
+    };
     window.show();
-    app.processEvents();
-    if (!window.grab().save(output.filePath("tinypng-ui-preview.png"))) return 1;
-    window.resize(840,740);
-    app.processEvents();
-    if (!window.grab().save(output.filePath("tinypng-ui-preview-compact.png"))) return 1;
-    for(QPushButton* btn : {ui.addbtn,ui.folderbtn,ui.retrybtn,ui.startbtn,ui.settingsbtn}) {
-      if(btn->width()<btn->minimumSizeHint().width()) { std::cerr<<"Clipped button: "<<btn->text().toStdString()<<'\n'; return 1; }
+    for (ThemeMode mode : {ThemeMode::Light, ThemeMode::Dark}) {
+        Theme::instance()->setMode(mode);
+        config.themeMode = mode; Config(nullptr).set(config);
+        const QString suffix = mode == ThemeMode::Dark ? "dark" : "light";
+        window.resize(1080, 800); capture(&window, "tinypng-queue-" + suffix + ".png");
+        window.resize(840, 740); capture(&window, "tinypng-queue-compact-" + suffix + ".png");
     }
-    ui.importNotice->setText("已添加 5 张图片，1 个文件未添加。\nlarge-photo.JPG：文件大小 6.00 MB，超过当前上限 5.00 MB。可在“设置 → 大小范围”中调整。");
-    ui.importNotice->show();
-    app.processEvents();
-    if (!window.grab().save(output.filePath("tinypng-ui-preview-warning.png"))) return 1;
-    if (table->viewport()->height() < table->verticalHeader()->defaultSectionSize()) {
-        std::cerr << "Import notice leaves no room for a complete queue row\n";
-        return 1;
+    model->removeAll();
+    const QString warning = "已添加 0 张图片，1 个文件未添加。\nsample-jpg-files-sample_5184x3456.jpg：文件大小 5.30 MB（5554547 字节），超过当前上限 5.00 MB（5242880 字节）。可在“设置＞大小范围”中调整。";
+    for (ThemeMode mode : {ThemeMode::Light, ThemeMode::Dark}) {
+        Theme::instance()->setMode(mode);
+        config.themeMode = mode; Config(nullptr).set(config);
+        const QString suffix = mode == ThemeMode::Dark ? "dark" : "light";
+        window.table->importRejected(warning);
+        capture(&window, "tinypng-empty-warning-" + suffix + ".png");
+        if (window.table->viewport()->height() < 110 || window.table->geometry().bottom() >= window.table->parentWidget()->height()) return 2;
+        const int withNotice = window.table->viewport()->height();
+        window.findChild<QPushButton*>("closeNotice")->click();
+        capture(&window, "tinypng-empty-dismissed-" + suffix + ".png");
+        if (window.table->viewport()->height() <= withNotice) return 3;
+        auto* settings = new SettingWindow(&window);
+        settings->show();
+        for (auto* radio : settings->findChildren<QRadioButton*>()) if (radio->text() == "API KEY") radio->setChecked(true);
+        capture(settings, "tinypng-settings-" + suffix + ".png");
+        for (auto* spin : settings->findChildren<QSpinBox*>()) {
+            auto* edit = spin->findChild<QLineEdit*>();
+            if (edit->width() < 60 || edit->height() < edit->fontMetrics().height()) {
+                std::cerr << "Size input text is clipped\n"; return 4;
+            }
+        }
+        settings->close();
     }
-    std::cout<<"Native Qt UI layouts rendered at 1080x800 and 840x740\n";
+    std::cout << "Rendered actual Qt workspace, empty warnings, dismissal and settings in both themes\n";
 }

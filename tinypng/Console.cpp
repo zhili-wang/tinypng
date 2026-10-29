@@ -1,4 +1,5 @@
 #include "Console.h"
+#include "Theme.h"
 #include <QScrollBar>
 #include <QDesktopServices>
 #include <QMenu>
@@ -7,7 +8,19 @@
 
 Console::Console(QWidget* parent) : QTextBrowser(parent), atBottom(true) {
     setMinimumHeight(70);
-    setStyleSheet("QTextBrowser { background: white; color: #768a7d; border: 0; font-size: 12px; }");
+    const auto applyTheme = [this]() {
+        setStyleSheet(Theme::instance()->css("QTextBrowser { background: white; color: #768a7d; border: 0; font-size: 12px; }"));
+        QString html = document()->toHtml();
+        const bool dark = Theme::instance()->isDark();
+        html.replace(dark ? "#2c8b5b" : "#88d5a5", dark ? "#88d5a5" : "#2c8b5b");
+        html.replace(dark ? "#788b7f" : "#a4bcad", dark ? "#a4bcad" : "#788b7f");
+        html.replace(dark ? "#b85e4d" : "#efa891", dark ? "#efa891" : "#b85e4d");
+        const int scroll = verticalScrollBar()->value();
+        setHtml(html);
+        verticalScrollBar()->setValue(scroll);
+    };
+    connect(Theme::instance(), &Theme::changed, this, applyTheme);
+    applyTheme();
     document()->setMaximumBlockCount(1000);
     setOpenLinks(false);
     connect(this, &QTextEdit::textChanged, this, &Console::textChangedSlot);
@@ -15,7 +28,7 @@ Console::Console(QWidget* parent) : QTextBrowser(parent), atBottom(true) {
     connect(this, &Console::tipSignal, this, &Console::tip);
     connect(this, &Console::errorSignal, this, &Console::error);
     connect(this, &QTextBrowser::anchorClicked, this, &Console::clickLink);
-    tip("已就绪 · PNG、JPG/JPEG、WebP 使用 TinyPNG 压缩，SVG 在本地精简。");
+    tip("已就绪 · PNG、JPG/JPEG、WebP、SVG 使用 TinyPNG 压缩 · 每批 10 张，失败自动重试 2 次。");
 }
 void Console::append(const QString& text) {
     atBottom = verticalScrollBar()->value() >= verticalScrollBar()->maximum() - 4;
@@ -31,8 +44,8 @@ void Console::contextMenuEvent(QContextMenuEvent* event) {
     menu->exec(event->globalPos());
     delete menu;
 }
-void Console::info(const QString& text) { append(QString("<span style=\"color:#2c8b5b\">%1</span>").arg(text)); }
-void Console::tip(const QString& text) { append(QString("<span style=\"color:#788b7f\">%1</span>").arg(text)); }
-void Console::error(QString text) { append(QString("<span style=\"color:#b85e4d\">%1</span>").arg(text)); }
+void Console::info(const QString& text) { append(QString("<span style=\"color:%2\">%1</span>").arg(text, Theme::instance()->color("#2c8b5b", "#88d5a5").name())); }
+void Console::tip(const QString& text) { append(QString("<span style=\"color:%2\">%1</span>").arg(text, Theme::instance()->color("#788b7f", "#a4bcad").name())); }
+void Console::error(QString text) { append(QString("<span style=\"color:%2\">%1</span>").arg(text, Theme::instance()->color("#b85e4d", "#efa891").name())); }
 void Console::clickLink(const QUrl& link) { QDesktopServices::openUrl(link); }
 Console::~Console() {}

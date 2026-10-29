@@ -120,24 +120,33 @@ void MyTableView::paintEvent(QPaintEvent* event) {
     if (model()->rowCount() != 0 || !overlay->isHidden()) return;
     QPainter painter(viewport());
     painter.setRenderHint(QPainter::Antialiasing);
-    const QPoint center = viewport()->rect().center();
-    const QRect icon(center.x() - 28, center.y() - 68, 56, 56);
-    painter.setBrush(QColor("#edf6f0"));
-    painter.setPen(Qt::NoPen);
-    painter.drawRoundedRect(icon, 16, 16);
-    painter.setPen(QPen(QColor("#5b9f76"), 2));
-    painter.drawRoundedRect(icon.adjusted(16, 12, -16, -12), 3, 3);
-    painter.drawLine(center.x() - 7, center.y() - 47, center.x() + 7, center.y() - 47);
-    painter.drawLine(center.x() - 7, center.y() - 40, center.x() + 4, center.y() - 40);
+    const QRect area = viewport()->rect();
+    const bool showIcon = area.height() >= 150;
+    const bool showSubtitle = area.height() >= 90;
+    const int blockHeight = (showIcon ? 68 : 0) + 30 + (showSubtitle ? 31 : 0);
+    const int top = qMax(0, (area.height() - blockHeight) / 2);
+    if (showIcon) {
+        const QRect icon(area.center().x() - 28, top, 56, 56);
+        painter.setBrush(Theme::instance()->color("#edf6f0", "#2b4534"));
+        painter.setPen(Qt::NoPen);
+        painter.drawRoundedRect(icon, 16, 16);
+        painter.setPen(QPen(Theme::instance()->color("#5b9f76", "#9dd8b1"), 2));
+        painter.drawRoundedRect(icon.adjusted(16, 12, -16, -12), 3, 3);
+        painter.drawLine(icon.left() + 21, icon.top() + 21, icon.left() + 35, icon.top() + 21);
+        painter.drawLine(icon.left() + 21, icon.top() + 28, icon.left() + 32, icon.top() + 28);
+    }
     QFont title = font();
     title.setPixelSize(17);
     painter.setFont(title);
-    painter.setPen(QColor("#4c6a58"));
-    painter.drawText(QRect(0, center.y() + 1, viewport()->width(), 30), Qt::AlignCenter, "将图片或文件夹拖到这里");
-    title.setPixelSize(12);
-    painter.setFont(title);
-    painter.setPen(QColor("#8a9c90"));
-    painter.drawText(QRect(0, center.y() + 38, viewport()->width(), 25), Qt::AlignCenter, "支持 PNG、JPG/JPEG、WebP、SVG · 或点击上方添加图片");
+    painter.setPen(Theme::instance()->color("#4c6a58", "#c8dfd0"));
+    const int textTop = top + (showIcon ? 68 : 0);
+    painter.drawText(QRect(0, textTop, area.width(), 30), Qt::AlignCenter, "将图片或文件夹拖到这里");
+    if (showSubtitle) {
+        title.setPixelSize(12);
+        painter.setFont(title);
+        painter.setPen(Theme::instance()->color("#8a9c90", "#a5bfaf"));
+        painter.drawText(QRect(0, textTop + 36, area.width(), 25), Qt::AlignCenter, "支持 PNG、JPG/JPEG、WebP、SVG · 或点击上方添加图片");
+    }
 }
 void MyTableView::resizeEvent(QResizeEvent* event) {
 	QTableView::resizeEvent(event);

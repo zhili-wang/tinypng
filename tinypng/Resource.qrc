@@ -9,5 +9,13 @@
         <file>res/read.png</file>
         <file>logo.ico</file>
         <file>res/qt_zh_CN.qm</file>
+        <file alias="radio-dark-checked.png">res/controls/radio-dark-checked.png</file>
+        <file alias="radio-dark.png">res/controls/radio-dark.png</file>
+        <file alias="radio-light-checked.png">res/controls/radio-light-checked.png</file>
+        <file alias="radio-light.png">res/controls/radio-light.png</file>
+        <file alias="check-dark-checked.png">res/controls/check-dark-checked.png</file>
+        <file alias="check-dark.png">res/controls/check-dark.png</file>
+        <file alias="check-light-checked.png">res/controls/check-light-checked.png</file>
+        <file alias="check-light.png">res/controls/check-light.png</file>
     </qresource>
 </RCC>

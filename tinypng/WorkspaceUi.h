@@ -10,10 +10,13 @@
 #include <QSplitter>
 #include <QProgressBar>
 #include <QDesktopServices>
+#include <QScrollArea>
+#include <QEvent>
+#include "Theme.h"
 
 namespace WorkspaceAppearance {
 inline QString theme() {
-    return QStringLiteral(R"(
+    return Theme::instance()->css(QStringLiteral(R"(
 QMainWindow, QWidget#workspace { background: #f4f7f5; }
 QWidget { color: #203b30; font-size: 13px; }
 QFrame#card, QFrame#stat { background: white; border: 1px solid #e1e9e4; border-radius: 12px; }
@@ -22,7 +25,10 @@ QLabel#subtitle, QLabel#muted, QLabel#sizeRangeLabel { color: #7b8d83; }
 QLabel#eyebrow { color: #42986b; font-size: 11px; font-weight: 600; }
 QLabel#formats { background: #e5f1e9; color: #397756; border-radius: 13px; padding: 7px 12px; font-size: 11px; }
 QLabel#sectionTitle { font-size: 15px; font-weight: 600; }
-QLabel#importNotice { background: #fff6ed; color: #985539; border: 1px solid #f0dcc7; border-radius: 8px; padding: 10px 12px; }
+QFrame#importNoticeBox { background: #fff6ed; border: 1px solid #f0dcc7; border-radius: 8px; }
+QLabel#importNotice { color: #985539; background: transparent; padding: 0; }
+QScrollArea#importNoticeScroll, QScrollArea#importNoticeScroll QWidget { background: transparent; border: 0; }
+QPushButton#closeNotice { background: transparent; color: #985539; border: 0; padding: 0; font-size: 20px; }
 QLabel#statValue { font-size: 25px; font-weight: 600; }
 QLabel#failedValue { font-size: 25px; font-weight: 600; color: #bf6353; }
 QLabel#savedValue { font-size: 25px; font-weight: 600; color: #2d8f5e; }
@@ -47,8 +53,8 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: trans
 QMenu { background: white; border: 1px solid #dce6df; padding: 6px; }
 QMenu::item { padding: 8px 22px; }
 QMenu::item:selected { background: #eaf4ed; color: #237c51; }
-QToolTip { background: #203b30; color: white; border: 0; padding: 7px; }
-)");
+QToolTip { background: #122c1e; color: white; border: 0; padding: 7px; }
+)"));
 }
 inline QLabel* label(const QString& text, const QString& name) {
     QLabel* result = new QLabel(text);
@@ -75,11 +81,35 @@ inline QFrame* statCard(const QString& title, QLabel*& value, const QString& nam
 }
 }
 
+class ImportNoticeFrame : public QFrame {
+protected:
+    bool event(QEvent* event) override {
+        const bool visibilityChanged = event->type() == QEvent::ShowToParent || event->type() == QEvent::HideToParent;
+        const bool handled = QFrame::event(event);
+        if (visibilityChanged && parentWidget() && parentWidget()->layout()) {
+            // The splitter must reserve the complete queue layout, including an open notice.
+            QSplitter* splitter = qobject_cast<QSplitter*>(parentWidget()->parentWidget());
+            const QList<int> sizes = splitter ? splitter->sizes() : QList<int>();
+            QLayout* layout = parentWidget()->layout();
+            layout->invalidate();
+            parentWidget()->setMinimumHeight(layout->minimumSize().height());
+            parentWidget()->updateGeometry();
+            if (auto* main = qobject_cast<QMainWindow*>(window())) {
+                main->centralWidget()->layout()->invalidate();
+                main->setMinimumHeight(qMax(740, main->centralWidget()->layout()->minimumSize().height()));
+            }
+            if (splitter && event->type() == QEvent::HideToParent) splitter->setSizes(sizes);
+        }
+        return handled;
+    }
+};
+
 struct WorkspaceUi {
     QVBoxLayout* layout;
     QPushButton *addbtn, *folderbtn, *startbtn, *pausebtn, *retrybtn, *settingsbtn;
     QLabel *countLabel, *successLabel, *failedLabel, *savedLabel, *stateLabel, *progressLabel, *sizeRangeLabel, *importNotice;
     QProgressBar* progress;
+    QFrame* importNoticeBox;
 void setup(QMainWindow* window, QTableView* table, QTextBrowser* console) {
     using namespace WorkspaceAppearance;
     QWidget* workspace = new QWidget;
@@ -145,14 +175,34 @@ void setup(QMainWindow* window, QTableView* table, QTextBrowser* console) {
     sizeRangeLabel->setTextFormat(Qt::PlainText);
     sizeRangeLabel->setWordWrap(true);
     filesLayout->addWidget(sizeRangeLabel);
+    importNoticeBox = new ImportNoticeFrame;
+    importNoticeBox->setObjectName("importNoticeBox");
+    QHBoxLayout* noticeLayout = new QHBoxLayout(importNoticeBox);
+    noticeLayout->setContentsMargins(12, 10, 10, 10);
+    QScrollArea* noticeScroll = new QScrollArea;
+    noticeScroll->setObjectName("importNoticeScroll");
+    noticeScroll->setWidgetResizable(true);
+    noticeScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     importNotice = label("", "importNotice");
     importNotice->setTextFormat(Qt::PlainText);
     importNotice->setWordWrap(true);
+    importNotice->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     importNotice->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    importNotice->hide();
-    filesLayout->addWidget(importNotice);
+    importNotice->setMinimumWidth(0);
+    noticeScroll->setWidget(importNotice);
+    noticeLayout->addWidget(noticeScroll, 1);
+    QPushButton* closeNotice = new QPushButton("×");
+    closeNotice->setObjectName("closeNotice");
+    closeNotice->setFixedSize(28, 28);
+    closeNotice->setToolTip("关闭提示（详细原因保留在活动记录中）");
+    closeNotice->setAccessibleName("关闭导入提示");
+    noticeLayout->addWidget(closeNotice, 0, Qt::AlignTop);
+    QObject::connect(closeNotice, &QPushButton::clicked, importNoticeBox, &QWidget::hide);
+    importNoticeBox->setFixedHeight(94);
+    importNoticeBox->hide();
+    filesLayout->addWidget(importNoticeBox);
+    table->setMinimumHeight(168);
     filesLayout->addWidget(table);
-    files->setMinimumHeight(270);
     splitter->addWidget(files);
 
     QFrame* log = new QFrame;

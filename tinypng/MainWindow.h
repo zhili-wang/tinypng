@@ -40,6 +40,8 @@ private:
     QLabel* progressLabel;
     QLabel* sizeRangeLabel;
     QLabel* importNotice;
+    QWidget* importNoticeBox;
+    void refreshTheme();
     QProgressBar* progress;
     void buildInterface();
     void refreshSummary();

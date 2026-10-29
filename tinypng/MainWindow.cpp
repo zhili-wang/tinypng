@@ -5,6 +5,7 @@
 #include "SettingWindow.h"
 #include "Utility.h"
 #include "WorkspaceUi.h"
+#include "QueueAppearance.h"
 #include <QApplication>
 #include <QCloseEvent>
 #include <QFileDialog>
@@ -28,6 +29,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), dispatcher(nullpt
     setMinimumSize(840, 740);
     resize(1080, 800);
     buildInterface();
+    connect(Theme::instance(), &Theme::changed, this, &MainWindow::refreshTheme);
+    refreshTheme();
     dispatcher = new Dispatcher(console, table, this);
     connect(table, &MyTableView::readResource, this, &MainWindow::createScannner);
     connect(table, &MyTableView::importRejected, this, &MainWindow::showImportNotice);
@@ -77,6 +80,7 @@ void MainWindow::buildInterface() {
     progressLabel = ui.progressLabel;
     sizeRangeLabel = ui.sizeRangeLabel;
     importNotice = ui.importNotice;
+    importNoticeBox = ui.importNoticeBox;
     progress = ui.progress;
     connect(addbtn, &QPushButton::clicked, this, &MainWindow::onClickEditBtn);
     connect(folderbtn, &QPushButton::clicked, this, &MainWindow::onClickFolderBtn);
@@ -84,6 +88,12 @@ void MainWindow::buildInterface() {
     connect(pausebtn, &QPushButton::clicked, this, &MainWindow::onClickPauseBtn);
     connect(retrybtn, &QPushButton::clicked, this, &MainWindow::onClickRetryBtn);
     connect(settingsbtn, &QPushButton::clicked, this, &MainWindow::onOpenSettingWindow);
+}
+
+void MainWindow::refreshTheme() {
+    setStyleSheet(WorkspaceAppearance::theme());
+    QueueAppearance::applyTheme(table);
+    table->viewport()->update();
 }
 
 void MainWindow::refreshSummary() {
@@ -129,7 +139,7 @@ void MainWindow::refreshSizeHint() {
 }
 void MainWindow::showImportNotice(const QString& message) {
     importNotice->setText(message);
-    importNotice->show();
+    importNoticeBox->show();
     console->error(message.toHtmlEscaped().replace('\n', "<br>"));
 }
 void MainWindow::onClickEditBtn() {
@@ -173,7 +183,7 @@ void MainWindow::createScannner(const QStringList& files) {
     scanAccepted = 0;
     scanSkipped = 0;
     firstSkipped.clear();
-    importNotice->hide();
+    importNoticeBox->hide();
     refreshSizeHint();
     scanner = new Scanner(this);
     importing = true;

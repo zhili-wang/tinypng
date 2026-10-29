@@ -14,3 +14,8 @@ HEADERS += ../tinypng/Dispatcher.h ../tinypng/Compress.h ../tinypng/Config.h \
   ../tinypng/MainWindow.h ../tinypng/SettingWindow.h
 greaterThan(QT_MAJOR_VERSION, 5): CONFIG += c++17
 win32-msvc*: QMAKE_CXXFLAGS += /utf-8
+
+SOURCES += ../tinypng/Theme.cpp
+HEADERS += ../tinypng/Theme.h
+
+RESOURCES += ../tinypng/Resource.qrc

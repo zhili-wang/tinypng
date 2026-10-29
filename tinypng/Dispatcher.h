@@ -3,6 +3,7 @@
 #include <QElapsedTimer>
 #include <QHash>
 #include <QThread>
+#include <functional>
 #include "Compress.h"
 #include "Console.h"
 #include "MyTableView.h"
@@ -10,7 +11,8 @@
 class Dispatcher : public QObject {
     Q_OBJECT
 public:
-    Dispatcher(Console* console, MyTableView* table, QObject* parent = nullptr);
+    using WorkerFactory = std::function<Compress*(const configItem&, const QString&)>;
+    Dispatcher(Console* console, MyTableView* table, QObject* parent = nullptr, WorkerFactory factory = {});
     ~Dispatcher();
     bool isRunning() const;
     void run(bool failedOnly = false);
@@ -26,7 +28,10 @@ private:
     QHash<Compress*, QThread*> workers;
     QList<int> taskRows;
     int offset;
-    int activeWorkers;
+    int batchRemaining;
+    QHash<int, int> retries;
+    QHash<Compress*, int> assignments;
+    WorkerFactory workerFactory;
     int finishNum;
     int failedNum;
     qint64 totalSize;
@@ -34,7 +39,8 @@ private:
     quint64 generation;
     bool running;
     QElapsedTimer elapsedTimer;
-    void nextTask(Compress* worker);
+    void startBatch();
+    void startTask(Compress* worker, int row);
     void doneTask(Compress* worker, const QVariant& result);
     void stopWorkers();
 };

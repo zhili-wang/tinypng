@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <QObject>
 #include <QSettings>
@@ -16,7 +16,10 @@ enum class TinyReqMode {
 
 
 
+enum class ThemeMode { Light, Dark, System };
+
 struct configItem {
+    ThemeMode themeMode = ThemeMode::System;
 	QString mail;
 	QString key;
 	QString proxy;
@@ -38,6 +41,5 @@ public:
 	~Config();
 	void set(configItem item);
 	configItem get();
-private:
-	configItem randDefault();
+
 };

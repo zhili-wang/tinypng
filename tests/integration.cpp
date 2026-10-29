@@ -2,6 +2,9 @@
 #include "Scanner.h"
 #include "MainWindow.h"
 #include "SettingWindow.h"
+#include "MockService.h"
+#include "Theme.h"
+#include <QStyleHints>
 #include <QDir>
 #include <QImage>
 #include <QMap>
@@ -54,7 +57,11 @@ int main(int argc, char** argv) {
     TableModel model(nullptr);
     MyTableView table(nullptr, &model);
     Console console;
-    Dispatcher dispatcher(&console, &table);
+    MockService service;
+    check(service.isListening(), "mock compression service listens locally");
+    Dispatcher dispatcher(&console, &table, nullptr, [&](const configItem& cfg, const QString& output) {
+        return new Compress(cfg, output, service.base(), service.base());
+    });
     const QByteArray valid = R"SVG(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
         <!-- redundant annotation -->
         <circle cx="50" cy="50" r="30" fill="green" />
@@ -106,6 +113,66 @@ int main(int argc, char** argv) {
     check(!dispatcher.isRunning() && model.getRow(3).status == 0, "pause restores pending state without deadlock");
     runBatch(false);
     check(model.getRow(3).status == 2, "fresh batch resumes after pause");
+    check(service.webTypesCorrect && service.noWebAuth, "SVG uses store/process with correct MIME, size and no API credentials");
+    model.removeAll();
+    service.reset();
+    service.batching = true;
+    for (int i = 0; i < 25; ++i) {
+        const QString path = temp.filePath(QString("batch-%1.svg").arg(i));
+        QByteArray fixture = valid;
+        fixture.replace("viewBox=", "data-test-id=\"" + QByteArray::number(i) + "\" viewBox=");
+        writeFile(path, fixture);
+        model.addRow(rowFor(path, 0));
+    }
+    int updates = 0;
+    bool terminalProgress = true;
+    const auto progressCheck = QObject::connect(&dispatcher, &Dispatcher::progressChanged, &app, [&](int done, int, int failedCount) {
+        if (done) { ++updates; terminalProgress &= done == updates && failedCount <= 1; }
+        if (service.attempts.value(0) < 3 && model.getRow(0).status == -1) terminalProgress = false;
+    });
+    runBatch(false);
+    QObject::disconnect(progressCheck);
+    check(service.maximumActive == 10, "maximum concurrent images is ten");
+    check(service.barriersHeld, "next batch waits for every previous image including retries");
+    check(service.attempts.value(0) == 3 && model.getRow(0).status == 2, "transient failure succeeds on second automatic retry");
+    check(service.attempts.value(1) == 3 && model.getRow(1).status == -1, "persistent failure stops after exactly three total attempts");
+    check(updates == 25 && terminalProgress, "automatic retries do not inflate progress or failure counts");
+    for (int i = 2; i < 25; ++i) check(service.attempts.value(i) == 1 && model.getRow(i).status == 2, "successful image uploads only once");
+    model.removeAll(); service.reset(); service.failAll = true;
+    const QString pausePath = temp.filePath("retry-pause.svg");
+    QByteArray pauseFixture = valid; pauseFixture.replace("viewBox=", "data-test-id=\"0\" viewBox=");
+    writeFile(pausePath, pauseFixture); model.addRow(rowFor(pausePath, 0));
+    QEventLoop retryLoop;
+    QObject::connect(&console, &QTextEdit::textChanged, &retryLoop, [&]() {
+        if (service.attempts.value(0) == 1 && console.toPlainText().contains("自动重试 1/2")) retryLoop.quit();
+    });
+    dispatcher.run();
+    QTimer::singleShot(5000, &retryLoop, &QEventLoop::quit); retryLoop.exec();
+    check(dispatcher.isRunning() && model.getRow(0).status == 1, "waiting automatic retry remains processing");
+    dispatcher.quit();
+    QEventLoop pausedLoop; QTimer::singleShot(1200, &pausedLoop, &QEventLoop::quit); pausedLoop.exec();
+    check(service.attempts.value(0) == 1 && model.getRow(0).status == 0, "pause cancels delayed retries without resurrecting workers");
+    service.failAll = false; service.batching = false;
+    runBatch(false);
+    check(model.getRow(0).status == 2, "paused retry can resume in a fresh run");
+    model.removeAll();
+    config.tinyReqMode = TinyReqMode::Key; config.key = "test-key"; config.mail.clear(); Config(nullptr).set(config);
+    const QString apiPath = temp.filePath("api.jpg"); writeFile(apiPath, "original-jpg"); model.addRow(rowFor(apiPath, 0));
+    runBatch(false);
+    check(model.getRow(0).status == 2 && service.apiUploadAuth && service.apiDownloadAuth, "API upload uses api:KEY and downloads authenticated Location response without account");
+    check(readFile(apiPath) == "compressed-jpg", "API Location download is saved atomically");
+    model.removeAll();
+    const QString keySvg = temp.filePath("key-svg.svg"); writeFile(keySvg, valid); model.addRow(rowFor(keySvg, 0));
+    runBatch(false);
+    check(model.getRow(0).status == 2 && service.noWebAuth, "SVG uses website interface even when API KEY mode is selected");
+    config.tinyReqMode = TinyReqMode::Web; config.key.clear(); Config(nullptr).set(config);
+    for (const QString& variant : {QString("invalid-url"), QString("truncated")}) {
+        model.removeAll(); service.outputVariant = variant;
+        const QString unsafe = temp.filePath(variant + ".svg"); writeFile(unsafe, valid); model.addRow(rowFor(unsafe, 0));
+        runBatch(false);
+        check(model.getRow(0).status == -1 && readFile(unsafe) == valid, "invalid output URL or truncated download preserves original after retries");
+    }
+    service.outputVariant.clear();
     writeFile(temp.filePath("UPPER.SVG"), valid);
     writeFile(temp.filePath("unsupported.avif"), "fixture");
     Scanner scanner;
@@ -237,5 +304,50 @@ int main(int argc, char** argv) {
     dropUrls({QUrl::fromLocalFile(hugeJpg)});
     waitForImport();
     check(window.table->model()->rowCount() == 1 && !notice->isVisible(), "previously oversized JPG imports after increasing the local limit");
+    auto* noticeBox = window.findChild<QFrame*>("importNoticeBox");
+    auto* closeNotice = window.findChild<QPushButton*>("closeNotice");
+    check(noticeBox && closeNotice, "import notice has a dismissible container");
+    static_cast<TableModel*>(window.table->model())->removeAll();
+    window.resize(840, 740);
+    dropUrls({QUrl::fromLocalFile(text)}); waitForImport(); app.processEvents();
+    const int beforeClose = window.table->viewport()->height();
+    check(window.table->geometry().bottom() < window.table->parentWidget()->height(), "warning cannot clip the queue inside its card");
+    check(beforeClose >= 110, "empty queue retains legible space under import warning");
+    closeNotice->click(); app.processEvents();
+    check(!noticeBox->isVisible() && window.table->viewport()->height() > beforeClose, "closing notice releases queue space");
+    const QString log = window.console->toPlainText();
+    Theme::instance()->setMode(ThemeMode::Dark); app.processEvents();
+    check(QApplication::palette().color(QPalette::Base).lightness() < 128, "dark mode updates native input palette");
+    check(window.styleSheet().contains("#141c19") && window.table->styleSheet().contains("#1d2822"), "dark theme covers workspace and queue");
+    check(window.console->toPlainText() == log, "theme switch preserves activity logs");
+    Theme::instance()->setMode(ThemeMode::Light); app.processEvents();
+    check(QApplication::palette().color(QPalette::Base).lightness() > 128, "light mode overrides system appearance");
+    check(Config(nullptr).get().mail.isEmpty(), "no account is populated by default");
+    SettingWindow* themeSettings = new SettingWindow(&window); themeSettings->show();
+    auto* themes = themeSettings->findChild<QButtonGroup*>("themeMode");
+    check(themes && themes->buttons().size() == 3, "settings exposes light dark and system modes");
+    themes->button(int(ThemeMode::Dark))->setChecked(true);
+    QMetaObject::invokeMethod(themeSettings, "onClickSaveBtn", Qt::DirectConnection); app.processEvents();
+    check(Config(nullptr).get().themeMode == ThemeMode::Dark && Theme::instance()->isDark(), "saving theme persists preference and applies immediately");
+    SettingWindow* apiSettings = new SettingWindow(&window); apiSettings->show();
+    for (auto* radio : apiSettings->findChildren<QRadioButton*>()) if (radio->text() == "API KEY") radio->setChecked(true);
+    int credentialFields = 0;
+    for (auto* field : apiSettings->findChildren<QLineEdit*>()) if (!qobject_cast<QSpinBox*>(field->parentWidget())) ++credentialFields;
+    check(credentialFields == 2, "API settings only asks for KEY and optional proxy, without an account field");
+    app.processEvents();
+    for (QSpinBox* spin : apiSettings->findChildren<QSpinBox*>()) {
+        check(spin->buttonSymbols() == QAbstractSpinBox::NoButtons, "size inputs replace native arrow controls");
+        QLineEdit* edit = spin->findChild<QLineEdit*>();
+        check(edit->width() >= 60 && edit->height() >= edit->fontMetrics().height(), "size input digits and suffix have a complete text rectangle in dark mode");
+        edit->setText(spin->objectName() == "maxSize" ? "8192 KB" : "1 KB"); spin->interpretText();
+        check(spin->value() == (spin->objectName() == "maxSize" ? 8192 : 1), "size input keeps manual numeric editing");
+    }
+    Theme::instance()->setMode(ThemeMode::Light); app.processEvents();
+    for (QSpinBox* spin : apiSettings->findChildren<QSpinBox*>()) check(spin->findChild<QLineEdit*>()->width() >= 60, "theme change preserves size input text geometry");
+    apiSettings->findChild<QLineEdit*>("apiKeyInput")->setText("test-key");
+    QMetaObject::invokeMethod(apiSettings, "onClickSaveBtn", Qt::DirectConnection);
+    check(Config(nullptr).get().tinyReqMode == TinyReqMode::Key && Config(nullptr).get().mail.isEmpty(), "API settings saves a personal KEY without auto-filling an account");
+    Theme::instance()->setMode(ThemeMode::System);
+    check(Theme::instance()->mode() == ThemeMode::System, "follow system mode can be restored");
     std::cout << "Passed " << checks << " integration checks\n";
 }

@@ -12,8 +12,8 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 
-Compress::Compress(const configItem& cfg, const QString& output)
-    : config(cfg), outputRoot(output), row(-1), cancelled(false), mgr(nullptr), activeReply(nullptr) {}
+Compress::Compress(const configItem& cfg, const QString& output, const QUrl& web, const QUrl& api)
+    : config(cfg), outputRoot(output), webBase(web), apiBase(api), usingWeb(true), row(-1), cancelled(false), mgr(nullptr), activeReply(nullptr) {}
 
 bool Compress::isCancelled() const {
     return cancelled || QThread::currentThread()->isInterruptionRequested();
@@ -71,13 +71,6 @@ void Compress::process(int taskRow, const QString& root, const QString& taskPath
         return;
     }
     file.close();
-    if (QFileInfo(path).suffix().compare("svg", Qt::CaseInsensitive) == 0) {
-        QByteArray optimized;
-        QString error;
-        if (!Utility::optimizeSvg(binary, optimized, error)) emitError(error);
-        else saveOutput(optimized);
-        return;
-    }
     // Create all network objects in the worker thread.
     if (!mgr) {
         mgr = new QNetworkAccessManager(this);
@@ -86,36 +79,63 @@ void Compress::process(int taskRow, const QString& root, const QString& taskPath
             mgr->setProxy(QNetworkProxy(QNetworkProxy::HttpProxy, proxyUrl.host(), proxyUrl.port(8080)));
         }
     }
-    const bool webMode = config.tinyReqMode == TinyReqMode::Web;
-    QNetworkRequest request(QUrl(webMode ? "https://tinypng.com/backend/opt/shrink" : "https://api.tinify.com/shrink"));
+    const QString suffix = QFileInfo(path).suffix().toLower();
+    // SVG is supported by the website; the documented developer API lists raster formats only.
+    usingWeb = config.tinyReqMode == TinyReqMode::Web || suffix == "svg";
+    if (usingWeb) {
+        const QString type = suffix == "svg" ? "image/svg+xml" : suffix == "webp" ? "image/webp"
+            : suffix == "png" ? "image/png" : "image/jpeg";
+        processWeb(binary, type);
+        return;
+    }
+    QNetworkRequest request(apiBase.resolved(QUrl("shrink")));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/octet-stream");
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-    if (webMode) {
-        request.setHeader(QNetworkRequest::UserAgentHeader, "Mozilla/5.0");
-    } else {
-        request.setRawHeader("Authorization", "Basic " + (config.mail + ":" + config.key).toUtf8().toBase64());
-    }
+    request.setRawHeader("Authorization", "Basic " + ("api:" + config.key).toUtf8().toBase64());
     QNetworkReply* reply = mgr->post(request, binary);
-    if (waitForReply(reply, 180)) {
-        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (code >= 200 && code < 300) download(reply->readAll());
-        else emitError(QString("压缩接口返回 HTTP %1").arg(code));
-    }
+    if (waitForReply(reply, 180)) download(reply->readAll(), QUrl(QString::fromUtf8(reply->rawHeader("Location"))));
     reply->deleteLater();
 }
 
-void Compress::download(const QByteArray& response) {
+void Compress::processWeb(const QByteArray& binary, const QString& type) {
+    QNetworkRequest upload(webBase.resolved(QUrl("store")));
+    upload.setHeader(QNetworkRequest::ContentTypeHeader, "application/octet-stream");
+    upload.setHeader(QNetworkRequest::UserAgentHeader, "Mozilla/5.0");
+    QNetworkReply* stored = mgr->post(upload, binary);
+    if (!waitForReply(stored, 180)) { stored->deleteLater(); return; }
+    QJsonParseError error;
+    const QJsonObject input = QJsonDocument::fromJson(stored->readAll(), &error).object();
+    stored->deleteLater();
+    const QString key = input.value("key").toString();
+    if (error.error != QJsonParseError::NoError || key.isEmpty()) {
+        emitError("上传接口未返回有效文件标识");
+        return;
+    }
+    QJsonObject parameters;
+    parameters.insert("key", key);
+    parameters.insert("originalType", type);
+    parameters.insert("originalSize", binary.size());
+    QNetworkRequest request(webBase.resolved(QUrl("process")));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setHeader(QNetworkRequest::UserAgentHeader, "Mozilla/5.0");
+    QNetworkReply* processed = mgr->post(request, QJsonDocument(parameters).toJson(QJsonDocument::Compact));
+    if (waitForReply(processed, 180)) download(processed->readAll());
+    processed->deleteLater();
+}
+
+void Compress::download(const QByteArray& response, const QUrl& location) {
     QJsonParseError parseError;
     const QJsonDocument document = QJsonDocument::fromJson(response, &parseError);
     const QJsonObject object = document.object();
-    const QJsonObject output = object.value("output").toObject();
-    const QUrl url(output.value("url").toString());
-    if (parseError.error != QJsonParseError::NoError || !url.isValid() || url.scheme() != "https" || url.host().isEmpty()) {
+    const QJsonObject output = usingWeb ? object : object.value("output").toObject();
+    const QUrl url = location.isEmpty() ? QUrl(output.value("url").toString()) : location;
+    const QUrl base = usingWeb ? webBase : apiBase;
+    if (parseError.error != QJsonParseError::NoError || !url.isValid() || url.scheme() != base.scheme() || url.host() != base.host() || url.port() != base.port()) {
         emitError("压缩接口返回无效结果：" + QString::fromUtf8(response));
         return;
     }
     QNetworkRequest request(url);
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::SameOriginRedirectPolicy);
+    if (!usingWeb) request.setRawHeader("Authorization", "Basic " + ("api:" + config.key).toUtf8().toBase64());
     QNetworkReply* reply = mgr->get(request);
     if (waitForReply(reply, 120)) {
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
