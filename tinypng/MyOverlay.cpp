@@ -10,7 +10,7 @@ MyOverlay::MyOverlay(QWidget* parent) : QWidget(parent) {
     QVBoxLayout* column = new QVBoxLayout(this);
     QLabel* title = new QLabel("松开鼠标，添加到压缩队列");
     title->setStyleSheet("font-size: 20px; font-weight: 600;");
-    QLabel* subtitle = new QLabel("PNG / JPEG / WebP / SVG");
+    QLabel* subtitle = new QLabel("PNG / JPG / JPEG / WebP / SVG");
     column->addStretch();
     column->addWidget(title, 0, Qt::AlignCenter);
     column->addWidget(subtitle, 0, Qt::AlignCenter);

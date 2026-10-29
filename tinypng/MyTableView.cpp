@@ -42,48 +42,48 @@ void MyTableView::setModel(QAbstractItemModel* m) {
 
 
 void MyTableView::dragEnterEvent(QDragEnterEvent* event) {
-	QTableView::dragEnterEvent(event);
-
-	if (!checkMimeIsDir(event->mimeData())) {
-		return;
-	}
-	overlay->show();
-	event->acceptProposedAction();
+    if (!event->mimeData()->hasUrls() || event->mimeData()->urls().isEmpty()) {
+        event->ignore();
+        return;
+    }
+    overlay->show();
+    event->setDropAction(Qt::CopyAction);
+    event->accept();
 }
 
 
 void MyTableView::dragMoveEvent(QDragMoveEvent* event) {
-	QTableView::dragMoveEvent(event);
-
-	if (!checkMimeIsDir(event->mimeData())) {
-		return;
-	}
-	event->acceptProposedAction();
+    if (!event->mimeData()->hasUrls() || event->mimeData()->urls().isEmpty()) {
+        event->ignore();
+        return;
+    }
+    event->setDropAction(Qt::CopyAction);
+    event->accept();
 }
 
 void MyTableView::dragLeaveEvent(QDragLeaveEvent* event) {
 	overlay->hide();
+    event->accept();
 }
 
 void MyTableView::dropEvent(QDropEvent* event) {
-	QTableView::dropEvent(event);
-	const QMimeData* mimedata = event->mimeData();
-	if (!mimedata->hasUrls()) {
-		return;
-	}
-	QList<QUrl> urls = mimedata->urls();
-	QStringList files = QStringList();
-	for (int i = 0; i < urls.count(); i++) {
-		QString path = urls.at(i).toLocalFile();
-		QFileInfo file(path);
-		if (file.isFile() && !Utility::checkFileFormat(path)) {
-			continue;
-		}
-		files << path;
-	}
-
-	overlay->hide();
-	emit readResource(files);
+    overlay->hide();
+    if (!event->mimeData()->hasUrls() || event->mimeData()->urls().isEmpty()) {
+        event->ignore();
+        return;
+    }
+    event->setDropAction(Qt::CopyAction);
+    event->accept();
+    QStringList files;
+    for (const QUrl& url : event->mimeData()->urls()) {
+        if (!url.isLocalFile() || url.toLocalFile().isEmpty()) {
+            emit importRejected("请拖入本地图片或文件夹；网页链接需要先下载到电脑。");
+            return;
+        }
+        // Let the scanner report rejected formats and sizes instead of hiding them.
+        files.append(url.toLocalFile());
+    }
+    emit readResource(files);
 }
 
 
@@ -137,35 +137,7 @@ void MyTableView::paintEvent(QPaintEvent* event) {
     title.setPixelSize(12);
     painter.setFont(title);
     painter.setPen(QColor("#8a9c90"));
-    painter.drawText(QRect(0, center.y() + 38, viewport()->width(), 25), Qt::AlignCenter, "支持 PNG、JPEG、WebP、SVG · 或点击上方添加图片");
-}
-
-bool MyTableView::checkMimeIsDir(const QMimeData* mimedata) {
-
-	if (mimedata->hasUrls() == false) {
-		return false;
-	}
-
-	if (mimedata->urls().length() == 0) {
-		return false;
-	}
-	int dirNum = 0;
-	int fileNum = 0;
-	for (int i = 0; i < mimedata->urls().length(); i++) {
-		QString path = mimedata->urls().at(i).toLocalFile();
-
-		if (QDir(path).exists()) {
-			dirNum += 1;
-		}
-		else if (Utility::checkFileFormat(path)) {
-			fileNum += 1;
-		}
-	}
-	//不能是多个文件夹 不能文件夹和文件混合  
-	if (dirNum > 1 || (dirNum > 0 && fileNum > 0) || (fileNum + dirNum) == 0) {
-		return false;
-	}
-	return true;
+    painter.drawText(QRect(0, center.y() + 38, viewport()->width(), 25), Qt::AlignCenter, "支持 PNG、JPG/JPEG、WebP、SVG · 或点击上方添加图片");
 }
 void MyTableView::resizeEvent(QResizeEvent* event) {
 	QTableView::resizeEvent(event);

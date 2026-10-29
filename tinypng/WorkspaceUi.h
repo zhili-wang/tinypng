@@ -18,10 +18,11 @@ QMainWindow, QWidget#workspace { background: #f4f7f5; }
 QWidget { color: #203b30; font-size: 13px; }
 QFrame#card, QFrame#stat { background: white; border: 1px solid #e1e9e4; border-radius: 12px; }
 QLabel#brand { font-size: 28px; font-weight: 700; color: #183e2b; }
-QLabel#subtitle, QLabel#muted { color: #7b8d83; }
+QLabel#subtitle, QLabel#muted, QLabel#sizeRangeLabel { color: #7b8d83; }
 QLabel#eyebrow { color: #42986b; font-size: 11px; font-weight: 600; }
 QLabel#formats { background: #e5f1e9; color: #397756; border-radius: 13px; padding: 7px 12px; font-size: 11px; }
 QLabel#sectionTitle { font-size: 15px; font-weight: 600; }
+QLabel#importNotice { background: #fff6ed; color: #985539; border: 1px solid #f0dcc7; border-radius: 8px; padding: 10px 12px; }
 QLabel#statValue { font-size: 25px; font-weight: 600; }
 QLabel#failedValue { font-size: 25px; font-weight: 600; color: #bf6353; }
 QLabel#savedValue { font-size: 25px; font-weight: 600; color: #2d8f5e; }
@@ -77,7 +78,7 @@ inline QFrame* statCard(const QString& title, QLabel*& value, const QString& nam
 struct WorkspaceUi {
     QVBoxLayout* layout;
     QPushButton *addbtn, *folderbtn, *startbtn, *pausebtn, *retrybtn, *settingsbtn;
-    QLabel *countLabel, *successLabel, *failedLabel, *savedLabel, *stateLabel, *progressLabel;
+    QLabel *countLabel, *successLabel, *failedLabel, *savedLabel, *stateLabel, *progressLabel, *sizeRangeLabel, *importNotice;
     QProgressBar* progress;
 void setup(QMainWindow* window, QTableView* table, QTextBrowser* console) {
     using namespace WorkspaceAppearance;
@@ -95,7 +96,7 @@ void setup(QMainWindow* window, QTableView* table, QTextBrowser* console) {
     title->addWidget(label("让每一张图片，更轻一点。", "subtitle"));
     header->addLayout(title);
     header->addStretch();
-    header->addWidget(label("PNG / JPEG / WebP / SVG", "formats"), 0, Qt::AlignVCenter);
+    header->addWidget(label("PNG / JPG / JPEG / WebP / SVG", "formats"), 0, Qt::AlignVCenter);
     layout->addLayout(header);
 
     QHBoxLayout* stats = new QHBoxLayout;
@@ -140,8 +141,18 @@ void setup(QMainWindow* window, QTableView* table, QTextBrowser* console) {
     filesHeader->addStretch();
     filesHeader->addWidget(label("双击预览 · 右键管理", "muted"));
     filesLayout->addLayout(filesHeader);
+    sizeRangeLabel = label("当前大小范围：0 B – 5 MB · 可在设置中调整", "sizeRangeLabel");
+    sizeRangeLabel->setTextFormat(Qt::PlainText);
+    sizeRangeLabel->setWordWrap(true);
+    filesLayout->addWidget(sizeRangeLabel);
+    importNotice = label("", "importNotice");
+    importNotice->setTextFormat(Qt::PlainText);
+    importNotice->setWordWrap(true);
+    importNotice->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    importNotice->hide();
+    filesLayout->addWidget(importNotice);
     filesLayout->addWidget(table);
-    files->setMinimumHeight(230);
+    files->setMinimumHeight(270);
     splitter->addWidget(files);
 
     QFrame* log = new QFrame;
@@ -157,7 +168,7 @@ void setup(QMainWindow* window, QTableView* table, QTextBrowser* console) {
     logHeader->addWidget(clear);
     logLayout->addLayout(logHeader);
     logLayout->addWidget(console);
-    log->setMinimumHeight(140);
+    log->setMinimumHeight(115);
     QObject::connect(clear, &QPushButton::clicked, console, &QTextEdit::clear);
     splitter->addWidget(log);
     splitter->setStretchFactor(0, 3);

@@ -13,6 +13,8 @@
 #include <QDesktopServices>
 #include <QStatusBar>
 #include <QFontDatabase>
+#include <QFileInfo>
+#include <QLocale>
 
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), dispatcher(nullptr), scanner(nullptr) {
@@ -28,6 +30,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), dispatcher(nullpt
     buildInterface();
     dispatcher = new Dispatcher(console, table, this);
     connect(table, &MyTableView::readResource, this, &MainWindow::createScannner);
+    connect(table, &MyTableView::importRejected, this, &MainWindow::showImportNotice);
     connect(dispatcher, &Dispatcher::started, this, [this]() {
         stateLabel->setText("正在压缩");
         refreshActions();
@@ -46,6 +49,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), dispatcher(nullpt
     connect(table->model(), &QAbstractItemModel::rowsInserted, this, [this]() { refreshSummary(); });
     connect(table->model(), &QAbstractItemModel::rowsRemoved, this, [this]() { refreshSummary(); refreshActions(); });
     refreshSummary();
+    refreshSizeHint();
     refreshActions();
 }
 MainWindow::~MainWindow() {
@@ -71,6 +75,8 @@ void MainWindow::buildInterface() {
     savedLabel = ui.savedLabel;
     stateLabel = ui.stateLabel;
     progressLabel = ui.progressLabel;
+    sizeRangeLabel = ui.sizeRangeLabel;
+    importNotice = ui.importNotice;
     progress = ui.progress;
     connect(addbtn, &QPushButton::clicked, this, &MainWindow::onClickEditBtn);
     connect(folderbtn, &QPushButton::clicked, this, &MainWindow::onClickFolderBtn);
@@ -96,7 +102,7 @@ void MainWindow::refreshSummary() {
     retrybtn->setText(failed ? QString("重试失败项 (%1)").arg(failed) : "重试失败项");
 }
 void MainWindow::refreshActions() {
-    const bool scanning = scanner && scanner->isRunning();
+    const bool scanning = importing;
     const bool running = dispatcher && dispatcher->isRunning();
     bool canStart = false, canRetry = false;
     TableModel* model = static_cast<TableModel*>(table->model());
@@ -112,40 +118,97 @@ void MainWindow::refreshActions() {
     pausebtn->setVisible(running);
     retrybtn->setEnabled(!scanning && !running && canRetry);
 }
+void MainWindow::refreshSizeHint() {
+    const configItem config = Config(this).get();
+    const QLocale locale(QLocale::English);
+    sizeRangeLabel->setText(QString("当前大小范围：%1 – %2 · 可在设置中调整")
+        .arg(locale.formattedDataSize(config.minsize, 2, QLocale::DataSizeTraditionalFormat),
+             locale.formattedDataSize(config.maxsize, 2, QLocale::DataSizeTraditionalFormat)));
+    sizeRangeLabel->setToolTip(QString("本地筛选范围：%1 至 %2 字节。压缩服务可能另有大小限制，调整此范围不会改变服务限制。")
+        .arg(config.minsize).arg(config.maxsize));
+}
+void MainWindow::showImportNotice(const QString& message) {
+    importNotice->setText(message);
+    importNotice->show();
+    console->error(message.toHtmlEscaped().replace('\n', "<br>"));
+}
 void MainWindow::onClickEditBtn() {
-    createScannner(QFileDialog::getOpenFileNames(this, "选择图片", "", "图片 (" + Utility::getFormatList().join(" ") + ")"));
+    createScannner(QFileDialog::getOpenFileNames(this, "选择图片", "", Utility::getFileDialogFilter()));
 }
 void MainWindow::onClickFolderBtn() {
     const QString folder = QFileDialog::getExistingDirectory(this, "选择图片文件夹");
     if (!folder.isEmpty()) createScannner(QStringList() << folder);
 }
-void MainWindow::onClickStartBtn() { if (!scanner || !scanner->isRunning()) dispatcher->run(); }
-void MainWindow::onClickRetryBtn() { if (!scanner || !scanner->isRunning()) dispatcher->run(true); }
+void MainWindow::onClickStartBtn() { if (!importing) dispatcher->run(); }
+void MainWindow::onClickRetryBtn() { if (!importing) dispatcher->run(true); }
 void MainWindow::onClickPauseBtn() {
     if (!dispatcher->isRunning()) return;
     dispatcher->quit();
     console->tip("已暂停，未完成的文件可继续压缩");
     progressLabel->setText("已暂停 · 点击开始压缩继续");
 }
-void MainWindow::onOpenSettingWindow() { (new SettingWindow(this))->show(); }
+void MainWindow::onOpenSettingWindow() {
+    SettingWindow* settings = new SettingWindow(this);
+    connect(settings, &QDialog::accepted, this, &MainWindow::refreshSizeHint);
+    settings->show();
+}
 void MainWindow::createScannner(const QStringList& files) {
-    if (files.isEmpty() || (scanner && scanner->isRunning())) return;
-    onClickPauseBtn();
+    if (files.isEmpty()) return;
+    if (importing) {
+        showImportNotice("正在读取图片，请等待本次读取完成后再添加。");
+        return;
+    }
+    if (dispatcher->isRunning()) {
+        showImportNotice("正在压缩图片，请先暂停压缩，再添加新的图片或文件夹。");
+        return;
+    }
+    int directories = 0;
+    for (const QString& file : files) directories += QFileInfo(file).isDir() ? 1 : 0;
+    if (directories > 1 || (directories == 1 && files.size() > 1)) {
+        showImportNotice("一次只能添加一个文件夹，不能与单独的图片混合拖入。请分批添加，或选择这些图片的共同文件夹。");
+        return;
+    }
     if (scanner) { delete scanner; scanner = nullptr; }
     TableModel* model = static_cast<TableModel*>(table->model());
-    model->removeAll();
+    scanAccepted = 0;
+    scanSkipped = 0;
+    firstSkipped.clear();
+    importNotice->hide();
+    refreshSizeHint();
     scanner = new Scanner(this);
-    connect(scanner, &Scanner::rowFound, model, [model](const TableModelRow& row) { model->addRow(row); }, Qt::QueuedConnection);
+    importing = true;
+    connect(scanner, &Scanner::rowFound, this, [this, model](const TableModelRow& row) {
+        // An invalid import must not erase the user's existing queue.
+        if (scanAccepted == 0) model->removeAll();
+        ++scanAccepted;
+        model->addRow(row);
+    }, Qt::QueuedConnection);
+    connect(scanner, &Scanner::fileSkipped, this, [this](const QString& path, const QString& reason) {
+        ++scanSkipped;
+        if (firstSkipped.isEmpty()) firstSkipped = QFileInfo(path).fileName() + "：" + reason;
+        console->error((path + "：" + reason).toHtmlEscaped());
+    }, Qt::QueuedConnection);
     connect(scanner, &QThread::finished, this, [this]() {
+        importing = false;
         table->setProcessingLocked(false);
         stateLabel->setText("就绪");
-        progress->setRange(0, qMax(1, table->model()->rowCount()));
-        progress->setValue(0);
-        progressLabel->setText(QString("%1 个文件待压缩").arg(table->model()->rowCount()));
+        if (scanAccepted > 0) {
+            progress->setRange(0, scanAccepted);
+            progress->setValue(0);
+            progressLabel->setText(QString("%1 个文件待压缩").arg(scanAccepted));
+        } else {
+            progressLabel->setText(table->model()->rowCount() > 0 ? "未添加新图片 · 原队列已保留" : "未添加图片 · 请查看上方提示");
+        }
         refreshSummary();
         refreshActions();
-        if (table->model()->rowCount() == 0) console->tip("没有找到符合格式和大小设置的图片");
-        else if (Config(this).get().autoStart) onClickStartBtn();
+        if (scanSkipped > 0) {
+            QString message = QString("已添加 %1 张图片，%2 个文件未添加。\n%3").arg(scanAccepted).arg(scanSkipped).arg(firstSkipped);
+            if (scanSkipped > 1) message += "\n全部跳过原因可在下方活动记录中查看。";
+            showImportNotice(message);
+        } else if (scanAccepted == 0) {
+            showImportNotice("没有找到 PNG、JPG/JPEG、WebP 或 SVG 图片。请检查文件夹内容和当前大小范围。");
+        }
+        if (scanAccepted > 0 && Config(this).get().autoStart) onClickStartBtn();
     });
     const configItem config = Config(this).get();
     table->setProcessingLocked(true);

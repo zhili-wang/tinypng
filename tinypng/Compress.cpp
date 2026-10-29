@@ -46,7 +46,11 @@ bool Compress::waitForReply(QNetworkReply* reply, int timeoutSeconds) {
         return false;
     }
     if (reply->error() != QNetworkReply::NoError) {
-        emitError(QString("请求失败：%1；%2").arg(reply->errorString(), QString::fromUtf8(reply->readAll())));
+        if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 413) {
+            emitError("图片超过压缩服务允许的大小（HTTP 413）。请先减小图片；调整本地“大小范围”不会提高服务限制。");
+        } else {
+            emitError(QString("请求失败：%1；%2").arg(reply->errorString(), QString::fromUtf8(reply->readAll())));
+        }
         return false;
     }
     return true;

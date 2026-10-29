@@ -1,5 +1,5 @@
 # 图片压缩软件
-基于 TinyPNG 的批量图片压缩软件，支持 PNG、JPEG、WebP 和 SVG。
+基于 TinyPNG 的批量图片压缩软件，支持 PNG、JPG/JPEG、WebP 和 SVG，扩展名大小写均可识别。
 
 
 日常开发经常会用到[tinypng.org](https://tinypng.org/)图片批量压缩，TinyPNG平均压缩率能达到60%，肉眼能观察到的画质损失微乎其微，对页面加载提速及体验、节省用户流量、缩小程序包有很大帮助。
@@ -13,6 +13,7 @@
 
 ### 新版功能
 
+- **JPG/JPEG 与导入提示**：支持 `.jpg`、`.JPG`、`.jpeg` 等扩展名。队列上方显示当前大小范围，默认最大 `5120 KB`（`5 MB`，即 `5 × 1024 × 1024` 字节）；可在“设置 → 大小范围”中调整。超出范围、空文件、不支持的格式或无法读取的文件会显示跳过原因，并在活动记录中保留文件名、实际大小和限制。全部文件被拒绝时保留原队列。网页链接或混合拖入文件夹和图片也会给出提示。大小范围仅用于本地筛选，压缩服务可能另有大小限制。
 - **SVG 压缩**：支持选择文件、拖拽和递归扫描文件夹。SVG 在本地精简 XML 空白及注释，保留矢量路径、精度和文字；包含脚本、样式、嵌入 HTML 或 DTD 的文件保守保留原内容，结果不会比原文件更大。
 - **重试失败项**：点击顶部按钮或按 `Ctrl+R`，一次重试所有失败文件。成功项与尚未开始的文件不参与这次重试；暂停后可点击“开始压缩”继续未完成任务。
 - **新版界面**：统一的浅色界面、文件统计、状态标签、活动记录及进度条，设置窗口也已重新整理。
@@ -60,11 +61,11 @@ qmake ../tinypng/VsTinypng.pro
 make
 ```
 
-`tests/regression.pro` 包含 SVG 渲染对比、格式过滤和重试筛选检查，需要 Qt SVG 模块。`tests/integration.pro` 验证真实任务调度、失败重试、暂停后继续、原文件保护和目录扫描。`tests/ui-preview.pro` 使用与程序共享的界面组件生成示例队列预览，检查两种窗口尺寸下的布局；它不执行网络压缩。
+`tests/regression.pro` 包含 SVG 渲染对比、JPG/JPEG 大小写识别、格式过滤和重试筛选检查，需要 Qt SVG 模块。`tests/integration.pro` 验证真实任务调度、失败重试、暂停后继续、原文件保护、目录扫描、大小边界以及真实 Qt 拖拽事件和导入提示。`tests/ui-preview.pro` 使用与程序共享的界面组件生成示例队列预览，检查两种窗口尺寸下的布局与大小提示；它不执行网络压缩。
 
 ### 安装包构建
 
-新版构建版本为 `1.1.0`。每次打包均使用新的构建目录，完整重新编译，不复用旧对象文件。GitHub Actions 中的 **Build installers** 可手动运行，生成 macOS 通用 DMG（Intel / Apple Silicon）和 Windows x64 安装 EXE、便携 ZIP；构建前会运行 SVG 渲染和失败项筛选检查。构建产物保存在 Actions 的 Artifacts 中；已发布的 `1.1.0` 安装包可从上方下载链接或 [Releases](https://github.com/zhili-wang/tinypng/releases/tag/v1.1.0) 获取。
+新版构建版本为 `1.1.1`。每次打包均使用新的构建目录，完整重新编译，不复用旧对象文件。GitHub Actions 中的 **Build installers** 可手动运行，生成 macOS 通用 DMG（Intel / Apple Silicon）和 Windows x64 安装 EXE、便携 ZIP；构建前会运行 SVG 渲染、失败项筛选和导入提示检查。构建产物保存在 Actions 的 Artifacts 中；已发布的 `1.1.0` 安装包可从上方下载链接或 [Releases](https://github.com/zhili-wang/tinypng/releases/tag/v1.1.0) 获取。
 
 本地 macOS 构建需要完整 Qt SDK（含 Qt SVG 模块）：
 

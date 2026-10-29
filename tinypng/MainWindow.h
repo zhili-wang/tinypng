@@ -21,6 +21,10 @@ protected:
 private:
     Dispatcher* dispatcher;
     Scanner* scanner;
+    bool importing = false;
+    int scanAccepted = 0;
+    int scanSkipped = 0;
+    QString firstSkipped;
     QVBoxLayout* layout;
     QPushButton* addbtn;
     QPushButton* folderbtn;
@@ -34,10 +38,14 @@ private:
     QLabel* savedLabel;
     QLabel* stateLabel;
     QLabel* progressLabel;
+    QLabel* sizeRangeLabel;
+    QLabel* importNotice;
     QProgressBar* progress;
     void buildInterface();
     void refreshSummary();
     void refreshActions();
+    void refreshSizeHint();
+    void showImportNotice(const QString& message);
 private slots:
     void onClickEditBtn();
     void onClickFolderBtn();

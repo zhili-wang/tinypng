@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
     QueueAppearance::configure(table);
     QTextBrowser* console = new QTextBrowser;
     console->setStyleSheet("QTextBrowser { background: white; color: #788b7f; border: 0; font-size: 12px; }");
-    console->append("已就绪 · PNG、JPEG、WebP 使用 TinyPNG 压缩，SVG 在本地精简。");
+    console->append("已就绪 · PNG、JPG/JPEG、WebP 使用 TinyPNG 压缩，SVG 在本地精简。");
     console->append("<span style='color:#2c8b5b'>1/5 · images/hero-banner.png · 已完成</span>");
     console->append("<span style='color:#2c8b5b'>2/5 · icons/brand-logo.svg · 已完成</span>");
     console->append("<span style='color:#b85e4d'>3/5 · photos/product-cover.webp · 请求超时，可点击“重试失败项”重试</span>");
@@ -56,6 +56,14 @@ int main(int argc, char** argv) {
     if (!window.grab().save(output.filePath("tinypng-ui-preview-compact.png"))) return 1;
     for(QPushButton* btn : {ui.addbtn,ui.folderbtn,ui.retrybtn,ui.startbtn,ui.settingsbtn}) {
       if(btn->width()<btn->minimumSizeHint().width()) { std::cerr<<"Clipped button: "<<btn->text().toStdString()<<'\n'; return 1; }
+    }
+    ui.importNotice->setText("已添加 5 张图片，1 个文件未添加。\nlarge-photo.JPG：文件大小 6.00 MB，超过当前上限 5.00 MB。可在“设置 → 大小范围”中调整。");
+    ui.importNotice->show();
+    app.processEvents();
+    if (!window.grab().save(output.filePath("tinypng-ui-preview-warning.png"))) return 1;
+    if (table->viewport()->height() < table->verticalHeader()->defaultSectionSize()) {
+        std::cerr << "Import notice leaves no room for a complete queue row\n";
+        return 1;
     }
     std::cout<<"Native Qt UI layouts rendered at 1080x800 and 840x740\n";
 }

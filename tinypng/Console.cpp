@@ -15,7 +15,7 @@ Console::Console(QWidget* parent) : QTextBrowser(parent), atBottom(true) {
     connect(this, &Console::tipSignal, this, &Console::tip);
     connect(this, &Console::errorSignal, this, &Console::error);
     connect(this, &QTextBrowser::anchorClicked, this, &Console::clickLink);
-    tip("已就绪 · PNG、JPEG、WebP 使用 TinyPNG 压缩，SVG 在本地精简。");
+    tip("已就绪 · PNG、JPG/JPEG、WebP 使用 TinyPNG 压缩，SVG 在本地精简。");
 }
 void Console::append(const QString& text) {
     atBottom = verticalScrollBar()->value() >= verticalScrollBar()->maximum() - 4;

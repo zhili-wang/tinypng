@@ -26,6 +26,13 @@ QStringList Utility::getFormatList() {
 	return suffiexs;
 }
 
+QString Utility::getFileDialogFilter() {
+    QStringList patterns = getFormatList();
+    // Native dialogs can match filters case-sensitively on some platforms.
+    for (const QString& pattern : getFormatList()) patterns.append(pattern.toUpper());
+    return "图片 (" + patterns.join(' ') + ");;所有文件 (*)";
+}
+
 bool Utility::optimizeSvg(const QByteArray& input, QByteArray& output, QString& error) {
 	// Compact XML without changing paths, precision, text, styles or namespaces.
 	QXmlStreamReader reader(input);

@@ -3,7 +3,7 @@ set -euo pipefail
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 qt_root="${1:-${TINYPNG_QT_DIR:-}}"
-version="${TINYPNG_VERSION:-1.1.0}"
+version="${TINYPNG_VERSION:-1.1.1}"
 architectures="${TINYPNG_MAC_ARCHS:-$(uname -m)}"
 if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "无效版本号：$version" >&2; exit 1; fi
 if [[ -n "$qt_root" ]]; then

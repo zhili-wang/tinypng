@@ -37,6 +37,10 @@ int main(int argc, char** argv) {
     check(Utility::checkFileFormat("picture.SVG"), "uppercase SVG accepted");
     check(Utility::checkFileFormat("picture.WeBp"), "existing WebP accepted");
     check(Utility::checkFileFormat("picture.JPEG"), "existing JPEG accepted");
+    for (const QString& name : {QString("picture.jpg"), QString("picture.JPG"), QString("picture.jPg"), QString("picture.jpeg")}) {
+        check(Utility::checkFileFormat(name), "JPG and JPEG accepted regardless of extension case");
+    }
+    check(Utility::getFileDialogFilter().contains("*.jpg") && Utility::getFileDialogFilter().contains("*.JPG"), "native file dialog includes lowercase and uppercase JPG");
     check(!Utility::checkFileFormat("picture.avif"), "AVIF not added");
     check(!Utility::checkFileFormat("picture.svg.txt"), "incorrect extension rejected");
     check(!Utility::checkFileFormat("/directory.svg/picture"), "extension in directory rejected");

@@ -11,6 +11,7 @@ public:
     void stop();
 signals:
     void rowFound(TableModelRow row);
+    void fileSkipped(QString path, QString reason);
 protected:
     void run() override;
 private:

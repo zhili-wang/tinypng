@@ -68,6 +68,10 @@ QPushButton#save { background: #278558; color: white; border-color: #278558; }
     sizes->addWidget(new QLabel("至"));
     sizes->addWidget(maxSize);
     form->addRow("大小范围", sizeRange);
+    QLabel* sizeHelp = new QLabel("默认最大 5120 KB（5 MB）。超出范围的文件会跳过并显示原因。\n此范围仅用于本地筛选，压缩服务可能另有大小限制。");
+    sizeHelp->setWordWrap(true);
+    sizeHelp->setStyleSheet("color: #7b8d83; font-size: 12px;");
+    form->addRow(sizeHelp);
     proxyInput = new QLineEdit;
     proxyInput->setPlaceholderText("可选，例如 http://127.0.0.1:7890");
     form->addRow("HTTP 代理", proxyInput);

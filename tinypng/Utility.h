@@ -9,5 +9,6 @@ public:
 	//验证文件后缀是否符合压缩格式
 	static bool checkFileFormat(const QString&);
 	static QStringList getFormatList();
+    static QString getFileDialogFilter();
 	static bool optimizeSvg(const QByteArray& input, QByteArray& output, QString& error);
 };

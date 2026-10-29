@@ -31,7 +31,6 @@ protected:
 private:
 	MyOverlay* overlay;
     bool processingLocked;
-	bool checkMimeIsDir(const QMimeData* minedata);
 
 
 public slots:
@@ -41,6 +40,7 @@ public slots:
 
 signals:
 	void readResource(QStringList);
+    void importRejected(QString reason);
 
 
 };
