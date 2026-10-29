@@ -2,7 +2,7 @@
 Debug/
 Release/
 innoscript.iss
-build-*
+build-*/
 tinypng/Debug
 tinypng/Release
 tinypng/x64

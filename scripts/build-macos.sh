@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+qt_root="${1:-${TINYPNG_QT_DIR:-}}"
+version="${TINYPNG_VERSION:-1.1.0}"
+architectures="${TINYPNG_MAC_ARCHS:-$(uname -m)}"
+if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "无效版本号：$version" >&2; exit 1; fi
+if [[ -n "$qt_root" ]]; then
+  qmake_bin="$qt_root/bin/qmake"
+else
+  qmake_bin="$(command -v qmake6 || command -v qmake || true)"
+fi
+if [[ -z "$qmake_bin" || ! -x "$qmake_bin" ]]; then
+  echo "缺少 Qt SDK。请设置 TINYPNG_QT_DIR，或传入 Qt macOS Kit 路径。" >&2
+  exit 1
+fi
+qt_bin="$(dirname "$qmake_bin")"
+if [[ ! -x "$qt_bin/macdeployqt" ]]; then
+  echo "Qt SDK 中缺少 macdeployqt，无法生成包含运行库的安装包。" >&2
+  exit 1
+fi
+arch_label="${architectures// /-}"
+if [[ "$architectures" == *x86_64* && "$architectures" == *arm64* ]]; then arch_label=universal; fi
+mkdir -p "$project_root/build"
+build_root="$(mktemp -d "$project_root/build/macos-$arch_label-$version.XXXXXX")"
+checks_root="$build_root/checks"
+mkdir -p "$checks_root" "$project_root/Installer"
+cd "$checks_root"
+"$qmake_bin" "$project_root/tests/regression.pro" -after 'CONFIG+=release' 'CONFIG-=debug' "QMAKE_APPLE_DEVICE_ARCHS=$architectures"
+make -j "$(sysctl -n hw.ncpu)"
+QT_QPA_PLATFORM=offscreen ./regression
+cd "$build_root"
+"$qmake_bin" "$project_root/tinypng/VsTinypng.pro" -after 'CONFIG+=release' 'CONFIG-=debug' 'TARGET=TinyPNG' "VERSION=$version" "QMAKE_APPLE_DEVICE_ARCHS=$architectures"
+make -j "$(sysctl -n hw.ncpu)"
+"$qt_bin/macdeployqt" "$build_root/TinyPNG.app" -always-overwrite
+# Apply a local signature after deployment; this does not notarize the app.
+codesign --force --deep --sign - "$build_root/TinyPNG.app"
+codesign --verify --deep --strict "$build_root/TinyPNG.app"
+stage="$(mktemp -d "$build_root/dmg-stage.XXXXXX")"
+trap 'rm -rf "$stage"' EXIT
+cp -R "$build_root/TinyPNG.app" "$stage/"
+ln -s /Applications "$stage/Applications"
+package="$project_root/Installer/TinyPNG-macOS-$arch_label-$version.dmg"
+hdiutil create -volname TinyPNG -srcfolder "$stage" -ov -format UDZO "$package"
+hdiutil verify "$package"
+printf '已生成：%s\n' "$package"
