@@ -62,7 +62,13 @@ private:
     }
     void handle(QTcpSocket* socket, const QByteArray& header, const QByteArray& body) {
         const QByteArray path = header.split(' ').value(1);
-        const QByteArray auth = "Authorization: Basic " + QByteArray("api:test-key").toBase64();
+        const QByteArray expectedAuth = "Basic " + QByteArray("api:test-key").toBase64();
+        QByteArray actualAuth;
+        for (const QByteArray& line : header.split('\n')) {
+            const int separator = line.indexOf(':');
+            if (separator >= 0 && line.left(separator).trimmed().toLower() == "authorization")
+                actualAuth = line.mid(separator + 1).trimmed();
+        }
         if (path == "/store") {
             noWebAuth &= !header.toLower().contains("authorization:");
             const int task = id(body);
@@ -102,10 +108,10 @@ private:
             if (batching) terminal.insert(task);
             respond(socket, 200, outputs.value(key));
         } else if (path == "/shrink") {
-            apiUploadAuth = header.contains(auth);
+            apiUploadAuth = actualAuth == expectedAuth;
             respond(socket, 201, "{\"input\":{\"size\":10}}", "Location: " + base().resolved(QUrl("api-output")).toEncoded() + "\r\n");
         } else if (path == "/api-output") {
-            apiDownloadAuth = header.contains(auth);
+            apiDownloadAuth = actualAuth == expectedAuth;
             respond(socket, 200, "compressed-jpg");
         } else respond(socket, 404, "missing");
     }

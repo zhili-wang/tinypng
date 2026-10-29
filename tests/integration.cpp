@@ -159,7 +159,9 @@ int main(int argc, char** argv) {
     config.tinyReqMode = TinyReqMode::Key; config.key = "test-key"; config.mail.clear(); Config(nullptr).set(config);
     const QString apiPath = temp.filePath("api.jpg"); writeFile(apiPath, "original-jpg"); model.addRow(rowFor(apiPath, 0));
     runBatch(false);
-    check(model.getRow(0).status == 2 && service.apiUploadAuth && service.apiDownloadAuth, "API upload uses api:KEY and downloads authenticated Location response without account");
+    check(model.getRow(0).status == 2, "API Location response completes without an account");
+    check(service.apiUploadAuth, "API upload authenticates with api:KEY");
+    check(service.apiDownloadAuth, "API Location download authenticates with api:KEY");
     check(readFile(apiPath) == "compressed-jpg", "API Location download is saved atomically");
     model.removeAll();
     const QString keySvg = temp.filePath("key-svg.svg"); writeFile(keySvg, valid); model.addRow(rowFor(keySvg, 0));
