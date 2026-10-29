@@ -5,7 +5,10 @@ qmake_bin="$2"
 qt_bin="$(dirname "$qmake_bin")"
 qt_plugins="$("$qmake_bin" -query QT_INSTALL_PLUGINS)"
 qt_libs="$("$qmake_bin" -query QT_INSTALL_LIBS)"
-arguments=(-always-overwrite -no-plugins -no-codesign "-libpath=$qt_libs")
+arguments=(-always-overwrite -no-plugins "-libpath=$qt_libs")
+# Qt 6.8 does not recognize this option; signing is applied after deployment.
+deploy_help="$("$qt_bin/macdeployqt" -h 2>&1 || true)"
+if [[ "$deploy_help" == *"-no-codesign"* ]]; then arguments+=(-no-codesign); fi
 # Deploy only the plugins used by this Widgets application and its startup checks.
 for relative in platforms/libqcocoa.dylib platforms/libqoffscreen.dylib \
     imageformats/libqgif.dylib imageformats/libqicns.dylib imageformats/libqico.dylib \

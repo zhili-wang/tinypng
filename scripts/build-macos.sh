@@ -40,7 +40,10 @@ cd "$build_root"
 "$qmake_bin" "$project_root/tinypng/VsTinypng.pro" -after 'CONFIG+=release' 'CONFIG-=debug' 'TARGET=TinyPNG' "VERSION=$version" "QMAKE_APPLE_DEVICE_ARCHS=$architectures"
 make -j "$(sysctl -n hw.ncpu)"
 deploy_log="$build_root/deploy.log"
-bash "$project_root/scripts/deploy-macos.sh" "$build_root/TinyPNG.app" "$qmake_bin" > "$deploy_log" 2>&1
+if ! bash "$project_root/scripts/deploy-macos.sh" "$build_root/TinyPNG.app" "$qmake_bin" > "$deploy_log" 2>&1; then
+  cat "$deploy_log" >&2
+  exit 1
+fi
 cat "$deploy_log"
 if grep -q '^ERROR:' "$deploy_log"; then
   echo "Qt 部署不完整，停止生成安装包。" >&2
