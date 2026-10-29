@@ -34,6 +34,19 @@ try {
     if ($LASTEXITCODE) { throw "SVG 或重试筛选检查失败。" }
     Remove-Item Env:QT_QPA_PLATFORM
 } finally { Pop-Location }
+$integrationRoot = Join-Path $buildRoot "integration"
+New-Item -ItemType Directory -Force $integrationRoot | Out-Null
+Push-Location $integrationRoot
+try {
+    & $qmake (Join-Path $projectRoot "tests/integration.pro") "-after" "CONFIG+=release" "CONFIG-=debug" "CONFIG-=debug_and_release" "DESTDIR=$integrationRoot/bin"
+    if ($LASTEXITCODE) { throw "集成测试配置失败。" }
+    & nmake.exe /NOLOGO
+    if ($LASTEXITCODE) { throw "集成测试编译失败。" }
+    $env:QT_QPA_PLATFORM = "offscreen"
+    & ./bin/integration.exe
+    if ($LASTEXITCODE) { throw "任务调度、暂停或重试检查失败。" }
+    Remove-Item Env:QT_QPA_PLATFORM
+} finally { Pop-Location }
 Push-Location $buildRoot
 try {
     & $qmake (Join-Path $projectRoot "tinypng/VsTinypng.pro") "-after" "CONFIG+=release" "CONFIG-=debug" "CONFIG-=debug_and_release" "DESTDIR=$buildRoot/bin" "TARGET=TinyPNG" "VERSION=$Version"

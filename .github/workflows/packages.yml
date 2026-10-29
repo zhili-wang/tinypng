@@ -28,7 +28,6 @@ jobs:
         with:
           version: '6.8.3'
           arch: clang_64
-          modules: qtsvg
           cache: true
       - name: Build and verify universal DMG
         shell: bash
@@ -55,7 +54,6 @@ jobs:
         with:
           version: '6.8.3'
           arch: win64_msvc2022_64
-          modules: qtsvg
           cache: true
       - name: Build EXE installer and portable ZIP
         shell: pwsh

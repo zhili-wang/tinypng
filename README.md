@@ -76,7 +76,7 @@ qmake ../tinypng/VsTinypng.pro
 make
 ```
 
-`tests/regression.pro` 包含 SVG 渲染对比、格式过滤和重试筛选检查，需要 Qt SVG 模块。`tests/ui-preview.pro` 使用与程序共享的界面组件生成示例队列预览，检查两种窗口尺寸下的布局；它不执行网络压缩。
+`tests/regression.pro` 包含 SVG 渲染对比、格式过滤和重试筛选检查，需要 Qt SVG 模块。`tests/integration.pro` 验证真实任务调度、失败重试、暂停后继续、原文件保护和目录扫描。`tests/ui-preview.pro` 使用与程序共享的界面组件生成示例队列预览，检查两种窗口尺寸下的布局；它不执行网络压缩。
 
 ### 安装包构建
 

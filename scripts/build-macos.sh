@@ -30,10 +30,23 @@ cd "$checks_root"
 "$qmake_bin" "$project_root/tests/regression.pro" -after 'CONFIG+=release' 'CONFIG-=debug' "QMAKE_APPLE_DEVICE_ARCHS=$architectures"
 make -j "$(sysctl -n hw.ncpu)"
 QT_QPA_PLATFORM=offscreen ./regression
+integration_root="$build_root/integration"
+mkdir -p "$integration_root"
+cd "$integration_root"
+"$qmake_bin" "$project_root/tests/integration.pro" -after 'CONFIG+=release' 'CONFIG-=debug' "QMAKE_APPLE_DEVICE_ARCHS=$architectures"
+make -j "$(sysctl -n hw.ncpu)"
+QT_QPA_PLATFORM=offscreen ./integration
 cd "$build_root"
 "$qmake_bin" "$project_root/tinypng/VsTinypng.pro" -after 'CONFIG+=release' 'CONFIG-=debug' 'TARGET=TinyPNG' "VERSION=$version" "QMAKE_APPLE_DEVICE_ARCHS=$architectures"
 make -j "$(sysctl -n hw.ncpu)"
-"$qt_bin/macdeployqt" "$build_root/TinyPNG.app" -always-overwrite
+qt_libs="$("$qmake_bin" -query QT_INSTALL_LIBS)"
+deploy_log="$build_root/deploy.log"
+"$qt_bin/macdeployqt" "$build_root/TinyPNG.app" -always-overwrite "-libpath=$qt_libs" > "$deploy_log" 2>&1
+cat "$deploy_log"
+if grep -q '^ERROR:' "$deploy_log"; then
+  echo "Qt 部署不完整，停止生成安装包。" >&2
+  exit 1
+fi
 # Apply a local signature after deployment; this does not notarize the app.
 codesign --force --deep --sign - "$build_root/TinyPNG.app"
 codesign --verify --deep --strict "$build_root/TinyPNG.app"
