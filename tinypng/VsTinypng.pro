@@ -1,11 +1,12 @@
-# Created by and for Qt Creator This file was created for editing the project sources only.
-# You may attempt to use it for building too, by modifying this file here.
+# Qt Widgets desktop application (Qt 5.14+ / Qt 6).
 
 TARGET = VsTinypng
+VERSION = 1.1.0
 
 QT = core gui widgets network
 
 CONFIG += c++11
+greaterThan(QT_MAJOR_VERSION, 5): CONFIG += c++17
 
 HEADERS = \
    $$PWD/Compress.h \
@@ -24,6 +25,8 @@ HEADERS = \
    $$PWD/TableHeaderItem.h \
    $$PWD/TableModel.h \
    $$PWD/Utility.h \
+   $$PWD/WorkspaceUi.h \
+   $$PWD/QueueAppearance.h \
 
 SOURCES = \
    $$PWD/Compress.cpp \
@@ -45,8 +48,6 @@ SOURCES = \
 
 INCLUDEPATH = \
     $$PWD/.
-FORMS += \
-    SettingWindow.ui
 
 RC_ICONS = logo.ico
 ICON = icon.icns
@@ -55,3 +56,4 @@ RESOURCES += \
 
 #DEFINES = 
 
+win32-msvc*: QMAKE_CXXFLAGS += /utf-8

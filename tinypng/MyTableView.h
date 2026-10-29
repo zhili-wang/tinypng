@@ -1,10 +1,9 @@
-﻿#pragma once
+#pragma once
 
 #include <QTableView>
 #include <QResizeEvent>
 #include "MyOverlay.h"
 #include "TableModel.h"
-#include "GridTableHeaderView.h"
 
 
 class MyTableView : public QTableView
@@ -16,6 +15,7 @@ public:
 	MyTableView(QWidget* parent, QAbstractItemModel*);
 	~MyTableView();
 	void init();
+    void setProcessingLocked(bool locked);
 	void setModel(QAbstractItemModel*) override;
 	virtual void dragEnterEvent(QDragEnterEvent*) override;
 	virtual void dragMoveEvent(QDragMoveEvent*) override;
@@ -30,6 +30,7 @@ protected:
 	void paintEvent(QPaintEvent*) override;
 private:
 	MyOverlay* overlay;
+    bool processingLocked;
 	bool checkMimeIsDir(const QMimeData* minedata);
 
 

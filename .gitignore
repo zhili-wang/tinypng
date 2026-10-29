@@ -8,3 +8,7 @@ tinypng/Release
 tinypng/x64
 .DS_Store
 yong.pfx
+build/
+Installer/TinyPNG-macOS-*.dmg
+Installer/TinyPNG-Windows-x64-*.exe
+Installer/TinyPNG-Windows-x64-*.zip

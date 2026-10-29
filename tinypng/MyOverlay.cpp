@@ -1,40 +1,20 @@
-﻿#include "MyOverlay.h"
+#include "MyOverlay.h"
 #include <QLabel>
 #include <QVBoxLayout>
 
-MyOverlay::MyOverlay(QWidget* parent)
-	: QWidget(parent)
-{
-
-	setObjectName("overlay");
-	setAttribute(Qt::WA_StyledBackground, true);
-	setStyleSheet("#overlay{background-color:rgba(0,0,0,0.3);}");
-
-	QLabel* label = new QLabel();
-	label->setObjectName("overlaylabel");
-
-	label->setStyleSheet("#overlaylabel{color:#FFFFFF;background-color:rgba(0,0,0,0);letter-spacing:10px;}");
-	label->setAttribute(Qt::WA_TransparentForMouseEvents, true);
-	label->setText("松开读取资源");
-
-	QImage* img = new QImage();
-	img->load(":/res/read.png");
-
-
-	QLabel* label2 = new QLabel();
-	label2->setPixmap(QPixmap::fromImage(*img));
-	QVBoxLayout* layout = new QVBoxLayout();
-	layout->addStretch(1);
-	layout->addWidget(label2, 0, Qt::AlignHCenter);
-	layout->addWidget(label, 0, Qt::AlignHCenter);
-	layout->addStretch(1);
-	setAttribute(Qt::WA_TransparentForMouseEvents, true);
-	setLayout(layout);
-	hide();
+MyOverlay::MyOverlay(QWidget* parent) : QWidget(parent) {
+    setObjectName("overlay");
+    setAttribute(Qt::WA_StyledBackground, true);
+    setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    setStyleSheet("#overlay { background: rgba(237,247,240,245); border: 2px dashed #6bae84; border-radius: 12px; } QLabel { border: 0; background: transparent; color: #39805a; }");
+    QVBoxLayout* column = new QVBoxLayout(this);
+    QLabel* title = new QLabel("松开鼠标，添加到压缩队列");
+    title->setStyleSheet("font-size: 20px; font-weight: 600;");
+    QLabel* subtitle = new QLabel("PNG / JPEG / WebP / SVG");
+    column->addStretch();
+    column->addWidget(title, 0, Qt::AlignCenter);
+    column->addWidget(subtitle, 0, Qt::AlignCenter);
+    column->addStretch();
+    hide();
 }
-
-
-
-MyOverlay::~MyOverlay()
-{
-}
+MyOverlay::~MyOverlay() {}

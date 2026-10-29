@@ -1,13 +1,25 @@
 # 图片压缩软件
-基于TinyPNG Api压缩软件，可安装直接运行，无需依赖任何第三方包及库。
+基于 TinyPNG 的批量图片压缩软件，支持 PNG、JPEG、WebP 和 SVG。
 
 
 日常开发经常会用到[tinypng.org](https://tinypng.org/)图片批量压缩，TinyPNG平均压缩率能达到60%，肉眼能观察到的画质损失微乎其微，对页面加载提速及体验、节省用户流量、缩小程序包有很大帮助。
 
 
 ##### 下载：
-[Download the installer for Windows>>](https://github.com/yongplus/tinypng/releases/tag/1.0.1)  
-[Download the installer for MacOS>>](https://github.com/yongplus/tinypng/releases/tag/1.0.1)
+[Download the installer for Windows>>](https://github.com/zhili-wang/tinypng/releases)\
+[Download the installer for MacOS>>](https://github.com/zhili-wang/tinypng/releases)
+
+### 新版功能
+
+- **SVG 压缩**：支持选择文件、拖拽和递归扫描文件夹。SVG 在本地精简 XML 空白及注释，保留矢量路径、精度和文字；包含脚本、样式、嵌入 HTML 或 DTD 的文件保守保留原内容，结果不会比原文件更大。
+- **重试失败项**：点击顶部按钮或按 `Ctrl+R`，一次重试所有失败文件。成功项与尚未开始的文件不参与这次重试；暂停后可点击“开始压缩”继续未完成任务。
+- **新版界面**：统一的浅色界面、文件统计、状态标签、活动记录及进度条，设置窗口也已重新整理。
+
+以下是新版界面的示例队列预览：
+
+<img src="./assets/ui-preview.png" width="900px" />
+
+单独添加图片时保存到原路径；添加文件夹时，可在设置中选择覆盖原文件或保存到同级 `_tiny` 目录。保存采用临时文件提交，写入失败时保留原文件，方便重试。
 
 ### Screenshots
  
@@ -41,7 +53,7 @@
 
 ### Comparisons
 以下是对电商项目的商品详情页图片压缩测试数据，无论是页面大小还是访问速度的提升都很显著  
-![截图](https://github.com/yongplus/tinypng/blob/master/assets/compared.png?raw=true)  
+![截图](https://github.com/zhili-wang/tinypng/blob/master/assets/compared.png?raw=true)
 
 
 ##### 免责声明
@@ -52,3 +64,34 @@ This Repo is only for study.
 
 
 
+
+### 开发与验证
+
+使用 Qt 5.14+ 或 Qt 6 SDK 构建桌面程序：
+
+```sh
+mkdir -p build
+cd build
+qmake ../tinypng/VsTinypng.pro
+make
+```
+
+`tests/regression.pro` 包含 SVG 渲染对比、格式过滤和重试筛选检查，需要 Qt SVG 模块。`tests/ui-preview.pro` 使用与程序共享的界面组件生成示例队列预览，检查两种窗口尺寸下的布局；它不执行网络压缩。
+
+### 安装包构建
+
+新版构建版本为 `1.1.0`。每次打包均使用新的构建目录，完整重新编译，不复用旧对象文件。GitHub Actions 中的 **Build installers** 可手动运行，生成 macOS 通用 DMG（Intel / Apple Silicon）和 Windows x64 安装 EXE、便携 ZIP；构建前会运行 SVG 渲染和失败项筛选检查。产物保存在 Actions 的 Artifacts 中，发布到 Releases 后可从上方下载链接获取。
+
+本地 macOS 构建需要完整 Qt SDK（含 Qt SVG 模块）：
+
+```sh
+bash scripts/build-macos.sh /path/to/Qt/6.8.3/macos
+```
+
+Windows 构建需要 Qt MSVC x64 SDK、Visual Studio x64 Developer PowerShell 和 Inno Setup 6：
+
+```powershell
+./scripts/build-windows.ps1 -QtRoot C:/Qt/6.8.3/msvc2022_64
+```
+
+macOS 脚本采用本地临时签名；公开分发时仍需使用开发者证书签名和 Apple 公证。Windows 安装程序为当前用户安装，并附带 Qt 和 MSVC 运行库。

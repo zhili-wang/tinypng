@@ -1,31 +1,21 @@
-﻿#pragma once
-
+#pragma once
 #include <QThread>
-#include <QStandardItemModel>
-#include <QEventLoop>
 #include "TableModel.h"
 
-class Scanner : public QThread
-{
-	Q_OBJECT
-
+class Scanner : public QThread {
+    Q_OBJECT
 public:
-
-	TableModel* model;
-	//CompressThreadDispatcher* dispatcher;
-	int minsize;
-	int maxsize;
-	explicit  Scanner(QObject* parent);
-	~Scanner();
-	void start(const QStringList&, int, int);
-	void stop();
-	void setModel(QStandardItemModel*);
-	void add(const QString&, const QString&, int);
-	void batch(const QStringList&);
-	//void setDispatcher(CompressThreadDispatcher*);
+    explicit Scanner(QObject* parent = nullptr);
+    ~Scanner();
+    void start(const QStringList& files, int minsize, int maxsize);
+    void stop();
+signals:
+    void rowFound(TableModelRow row);
 protected:
-	void run();
+    void run() override;
 private:
-	QStringList files;
-	bool stopped;
+    QStringList files;
+    int minsize;
+    int maxsize;
+    void addFile(const QString& root, const QString& path);
 };

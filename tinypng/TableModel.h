@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <QAbstractTableModel>
 #include <QMutex>
@@ -10,7 +10,12 @@ typedef struct TableModelRow {
 	int size;
 	int thin_size; //压缩后的大小
 	int status;
+	bool needsCompression(bool failedOnly = false) const {
+		return failedOnly ? status == -1 : status == 0 || status == -1;
+	}
 }_TableModelRow;
+
+Q_DECLARE_METATYPE(TableModelRow)
 
 class TableModel : public QAbstractTableModel
 {
@@ -26,7 +31,7 @@ public:
 	void removeRow(int row, const QModelIndex& index = QModelIndex());
 	void removeRange(int first, int last, const QModelIndex& index = QModelIndex());
 	void removeAll();
-	TableModelRow getRow(int row);
+	TableModelRow getRow(int row) const;
 
 	void updateStatus(int row, int status);
 	QMutex* mutex;

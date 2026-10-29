@@ -1,9 +1,9 @@
-﻿#include "TableModel.h"
+#include "TableModel.h"
 #include <QLabel>
 #include <QWidget>
 #include <QDebug>
 #include <QTimer>
-#include <QtConcurrent/QtConcurrentRun>
+#include <QLocale>
 
 TableModel::TableModel(QObject* parent)
 	: QAbstractTableModel(parent),
@@ -12,7 +12,7 @@ TableModel::TableModel(QObject* parent)
 	this->mutex = new QMutex();
 	this->_data = new QList<TableModelRow>();
 
-	labels << "路径" << "原大小" << "压后大小" << "压缩率" << "状态";
+	labels << "文件路径" << "原始大小" << "压缩后" << "节省比例" << "状态";
 
 }
 
@@ -35,9 +35,11 @@ QVariant TableModel::data(const QModelIndex& index, int role = Qt::DisplayRole) 
 	}
 	Q_ASSERT(index.model() == this);
 
+	if (role == Qt::UserRole + 1) return _data->at(index.row()).status;
+    if (role == Qt::ToolTipRole) return _data->at(index.row()).root + _data->at(index.row()).path;
 	if (role != Qt::DisplayRole) {
 		if (index.column() > 0 && role == Qt::TextAlignmentRole) {
-			return Qt::AlignCenter;
+			return int(Qt::AlignCenter);
 		}
 		else if (index.column() == 4) {
 			TableModelRow item = this->_data->at(index.row());
@@ -80,7 +82,7 @@ QVariant TableModel::data(const QModelIndex& index, int role = Qt::DisplayRole) 
 			return QVariant();
 		}
 		else {
-			QString percent = QString::number(double(item.size - item.thin_size) / double(item.size) * 100, 'f', 2) + "%";
+			QString percent = QString::number((item.size > 0 ? double(item.size - item.thin_size) / double(item.size) * 100 : 0), 'f', 2) + "%";
 			return QVariant(percent);
 		}
 
@@ -90,7 +92,7 @@ QVariant TableModel::data(const QModelIndex& index, int role = Qt::DisplayRole) 
 		switch (item.status)
 		{
 		case -1:
-			status = "失 败";
+			status = "失败";
 			break;
 		case 0:
 			status = "待压缩";
@@ -99,7 +101,7 @@ QVariant TableModel::data(const QModelIndex& index, int role = Qt::DisplayRole) 
 			status = "压缩中";
 			break;
 		case 2:
-			status = "成 功";
+			status = "成功";
 			break;
 		default:
 			break;
@@ -119,7 +121,7 @@ QVariant TableModel::headerData(int section, Qt::Orientation orientation, int ro
 		return QAbstractTableModel::headerData(section, orientation, role);
 	}
 	QString text;
-	if (section <= labels.length()) {
+	if (section >= 0 && section < labels.length()) {
 		return QVariant(labels[section]);
 	}
 	else {
@@ -189,7 +191,7 @@ void TableModel::removeRange(int first, int last, const QModelIndex& index) {
 
 
 
-TableModelRow TableModel::getRow(int row) {
+TableModelRow TableModel::getRow(int row) const {
 
 	return this->_data->at(row);
 }
@@ -198,12 +200,14 @@ void TableModel::replaceRow(int row, const TableModelRow& item) {
 	this->mutex->lock();
 	this->_data->replace(row, item);
 	this->mutex->unlock();
+    emit dataChanged(index(row, 0), index(row, columnCount() - 1));
 }
 
 void TableModel::updateStatus(int row, int status) {
 	TableModelRow rowData = this->_data->at(row);
 	rowData.status = status;
 	this->_data->replace(row, rowData);
+    emit dataChanged(index(row, 4), index(row, 4));
 
 }
 
@@ -213,5 +217,6 @@ void TableModel::updateStatus(int row, int status) {
 
 TableModel::~TableModel()
 {
-
+    delete _data;
+    delete mutex;
 }

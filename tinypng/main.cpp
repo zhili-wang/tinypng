@@ -1,4 +1,4 @@
-﻿#include "SingleApplication.h"
+#include "SingleApplication.h"
 #include <QTranslator>
 #include "MainWindow.h"
 
@@ -13,14 +13,8 @@ int main(int argc, char* argv[])
 
 
 
-	QTranslator qtTranslator;
-
-	QTranslator* pTranslator = new QTranslator();
-	pTranslator->load(":/res/qt_zh_CN.qm");
-	a.installTranslator(pTranslator);
-
-	QFont f("Helvetica", 9);
-	a.setFont(f);
+    QTranslator qtTranslator;
+    if (qtTranslator.load(":/res/qt_zh_CN.qm")) a.installTranslator(&qtTranslator);
 
 	MainWindow w;
 	a.setSingleMainWindow(&w);

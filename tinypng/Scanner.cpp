@@ -1,105 +1,48 @@
-﻿#include "Scanner.h"
-#include <QDirIterator>
-#include <QDebug>
-#include <QFileInfo>
+#include "Scanner.h"
 #include "Utility.h"
+#include <QDirIterator>
+#include <QFileInfo>
 
-Scanner::Scanner(QObject* parent) :
-	QThread(parent),
-	minsize(0),
-	model(nullptr)
-	//dispatcher(nullptr)
-{
-	stopped = false;
+Scanner::Scanner(QObject* parent) : QThread(parent), minsize(0), maxsize(0) {
+    qRegisterMetaType<TableModelRow>();
 }
-
-void Scanner::start(const QStringList& files, int minsize, int maxsize) {
-	if (files.count() == 0) {
-		return;
-	}
-
-	this->stop();
-	this->stopped = false;
-	this->files = files;
-	this->minsize = minsize;
-	this->maxsize = maxsize;
-	QThread::start();
+Scanner::~Scanner() { stop(); }
+void Scanner::start(const QStringList& input, int minimum, int maximum) {
+    stop();
+    files = input;
+    minsize = minimum;
+    maxsize = maximum;
+    QThread::start();
 }
-
 void Scanner::stop() {
-	if (this->isRunning()) {
-		this->stopped = true;
-		this->wait();
-	}
+    requestInterruption();
+    wait();
 }
-
-void Scanner::setModel(QStandardItemModel* m) {
-	this->model = (TableModel*)m;
+void Scanner::addFile(const QString& root, const QString& path) {
+    const QFileInfo info(root + path);
+    if (!info.isFile() || !Utility::checkFileFormat(info.fileName()) || info.size() < minsize || info.size() > maxsize) return;
+    TableModelRow row;
+    row.root = root;
+    row.path = path;
+    row.size = info.size();
+    row.thin_size = -1;
+    row.status = 0;
+    emit rowFound(row);
 }
-
-
 void Scanner::run() {
-	model->removeAll();
-	QFileInfo fileinfo(files[0]);
-	if (fileinfo.isFile()) {
-		qDebug() << "the src are files~!";
-		this->batch(files);
-		return;
-	}
-	QString path = files[0];
-
-	QDirIterator it(path, Utility::getFormatList(), QDir::Files, QDirIterator::Subdirectories);
-	QList<TableModelRow> list;
-	while (it.hasNext()) {
-		if (this->stopped) {
-			this->exit();
-			break;
-		}
-		QString filepath = it.next();
-		QFileInfo fileinfo = it.fileInfo();
-		filepath = filepath.right(filepath.length() - path.length());
-		int filesize = fileinfo.size();
-		if (filesize < this->minsize || filesize > this->maxsize) {
-			continue;
-		}
-		this->add(path, filepath, it.fileInfo().size());
-	}
-}
-
-void Scanner::add(const QString& root, const QString& filepath, int size) {
-	_TableModelRow item;
-
-	item.root = root;
-	item.path = filepath;
-	item.size = size;
-	item.status = 0;
-	item.thin_size = -1;
-	model->addRow(item);
-}
-
-void Scanner::batch(const QStringList& files) {
-	if (files.count() == 0) {
-		return;
-	}
-
-	for (int i = 0; i < files.count(); i++) {
-		if (this->stopped) {
-			this->exit();
-			break;
-		}
-		QFileInfo fileinfo(files[i]);
-		if (!fileinfo.exists()) {
-			return;
-		}
-		this->add("", files[i], fileinfo.size());
-	}
-}
-/*
-void Scanner::setDispatcher(CompressThreadDispatcher* obj) {
-	this->dispatcher = obj;
-}
-*/
-
-Scanner::~Scanner()
-{
+    if (files.isEmpty()) return;
+    if (files.size() == 1 && QFileInfo(files.first()).isDir()) {
+        const QString root = QFileInfo(files.first()).absoluteFilePath();
+        // Apply the same case-insensitive filter to folders, file dialogs and drops.
+        QDirIterator it(root, QDir::Files | QDir::NoSymLinks, QDirIterator::Subdirectories);
+        while (!isInterruptionRequested() && it.hasNext()) {
+            const QString path = it.next();
+            addFile(root, "/" + QDir(root).relativeFilePath(path));
+        }
+    } else {
+        for (const QString& path : files) {
+            if (isInterruptionRequested()) break;
+            addFile("", path);
+        }
+    }
 }

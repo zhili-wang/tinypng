@@ -1,57 +1,39 @@
-﻿#pragma once
-
+#pragma once
 #include <QObject>
+#include <QVariant>
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QVariantMap>
-#include <QEventLoop>
 #include "Config.h"
 
 struct CompressResult {
-	int errcode;
-	QString errmsg;
-	int size;
-	int row;
-	QString path;
+    int errcode = 0;
+    QString errmsg;
+    int size = 0;
+    int row = -1;
+    QString path;
 };
+Q_DECLARE_METATYPE(CompressResult)
 
-
-Q_DECLARE_METATYPE(CompressResult);
-
-class Compress : public QObject
-{
-	Q_OBJECT
-
+class Compress : public QObject {
+    Q_OBJECT
 public:
-	int row;
-	QString root;
-	QString outputRoot;
-	QString path;
-	configItem config;
-	QThread* thread;
-	int state; // 0 新任务待处理 -1 退出 
-	QEventLoop* eventloop;
-	QNetworkAccessManager* mgr;
-	Compress(QThread* thread, const configItem& config, QString);
-	~Compress();
-
-	void addTask(int row, const QString& root, QString& path);
-	void quit();
-
-private:
-	void download(const QByteArray&, const QString&);
-	void emitError(const QString& msg, const int& errcode = 1);
-	QString generateIp();
-
+    Compress(const configItem& config, const QString& outputRoot);
 public slots:
-	void run();
-	void setAuthentication(QNetworkReply*, QAuthenticator*);
-
-
+    void process(int row, const QString& root, const QString& path);
+    void cancel();
 signals:
-
-	void finished(QVariant);
-
+    void finished(QVariant result);
+private:
+    configItem config;
+    QString outputRoot;
+    QString path;
+    int row;
+    bool cancelled;
+    QNetworkAccessManager* mgr;
+    QNetworkReply* activeReply;
+    bool waitForReply(QNetworkReply* reply, int timeoutSeconds);
+    void download(const QByteArray& response);
+    void saveOutput(const QByteArray& data);
+    void emitError(const QString& message);
+    bool isCancelled() const;
 };

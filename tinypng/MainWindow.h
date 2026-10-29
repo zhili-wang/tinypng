@@ -1,60 +1,49 @@
-﻿#pragma once
-
-#include <QWidget>
+#pragma once
+#include <QMainWindow>
 #include <QPushButton>
 #include <QVBoxLayout>
-#include <QMainWindow>
-#include <QHBoxLayout>
-#include <QStandardItemModel>
+#include <QLabel>
+#include <QProgressBar>
 #include "MyTableView.h"
-#include "MyOverlay.h"
 #include "Console.h"
 #include "Dispatcher.h"
-#include "Config.h"
-#include "SettingWindow.h"
 #include "Scanner.h"
 
-namespace Ui {
-	class MainWindow;
-}
-
-class MainWindow :
-	public QMainWindow
-{
-	Q_OBJECT
-
+class MainWindow : public QMainWindow {
+    Q_OBJECT
 public:
-	MyTableView* table;
-	QVBoxLayout* layout;
-	QWidget* widget;
-	Console* console;
-	Config* config;
-	QPushButton* startbtn;
-	QPushButton* pausebtn;
-	Scanner* scanner;
-	MainWindow(QWidget* parent = nullptr);
-	~MainWindow();
-	void show();
-
-private:
-	Dispatcher* dispatcher;
-	Ui::MainWindow* ui;
-
-	void _buildTopBtns();
-	void _buildBody();
-	virtual void resizeEvent(QResizeEvent* event) override;
-
-
+    explicit MainWindow(QWidget* parent = nullptr);
+    ~MainWindow();
+    MyTableView* table;
+    Console* console;
 protected:
-	virtual void closeEvent(QCloseEvent* event) override;
-
-public slots:
-	void onClickEditBtn();
-	void onClickPauseBtn();
-	void onClickStartBtn();
-	void onOpenSettingWindow();
-	void showStartBtn();
-	void showPauseBtn();
-	void createScannner(const QStringList&); //创建资源扫描器
-
+    void closeEvent(QCloseEvent* event) override;
+private:
+    Dispatcher* dispatcher;
+    Scanner* scanner;
+    QVBoxLayout* layout;
+    QPushButton* addbtn;
+    QPushButton* folderbtn;
+    QPushButton* startbtn;
+    QPushButton* pausebtn;
+    QPushButton* retrybtn;
+    QPushButton* settingsbtn;
+    QLabel* countLabel;
+    QLabel* successLabel;
+    QLabel* failedLabel;
+    QLabel* savedLabel;
+    QLabel* stateLabel;
+    QLabel* progressLabel;
+    QProgressBar* progress;
+    void buildInterface();
+    void refreshSummary();
+    void refreshActions();
+private slots:
+    void onClickEditBtn();
+    void onClickFolderBtn();
+    void onClickPauseBtn();
+    void onClickStartBtn();
+    void onClickRetryBtn();
+    void onOpenSettingWindow();
+    void createScannner(const QStringList& files);
 };

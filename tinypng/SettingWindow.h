@@ -1,26 +1,27 @@
-﻿#pragma once
-
-#include <QWidget>
+#pragma once
+#include <QDialog>
+#include <QLineEdit>
+#include <QRadioButton>
+#include <QCheckBox>
+#include <QSpinBox>
 #include <QKeyEvent>
-#include <QToolTip>
-#include "ui_SettingWindow.h"
 #include "Config.h"
 
-class SettingWindow : public QWidget
-{
-	Q_OBJECT
-
+class SettingWindow : public QDialog {
+    Q_OBJECT
 public:
-	SettingWindow(QWidget* parent = Q_NULLPTR);
-	~SettingWindow();
-	void setValues();
-	void keyPressEvent(QKeyEvent* event);
-
-public slots:
-	void onClickSaveBtn();
-	void onShowSizeExplain();
-
+    explicit SettingWindow(QWidget* parent = nullptr);
+private slots:
+    void onClickSaveBtn();
 private:
-	Ui::SettingWindow* ui;
-	QToolTip* tooltip;
+    QRadioButton* webMode;
+    QRadioButton* keyMode;
+    QLineEdit* mailInput;
+    QLineEdit* keyInput;
+    QLineEdit* proxyInput;
+    QSpinBox* minSize;
+    QSpinBox* maxSize;
+    QRadioButton* newDirectory;
+    QRadioButton* replaceOriginal;
+    QCheckBox* autoStart;
 };

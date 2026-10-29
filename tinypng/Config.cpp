@@ -1,6 +1,6 @@
-﻿#include "Config.h"
-#include <QDateTime>
-#include <qDebug>
+#include "Config.h"
+#include <QRandomGenerator>
+#include <QDebug>
 
 Config::Config(QObject* parent)
 	: QObject(parent)
@@ -66,8 +66,7 @@ configItem Config::randDefault() {
 	list << configItem{ "294442185@qq.com","GdFgBwlrQMM9jdkzS17QlCpq3rNFpwZH" };
 	list << configItem{ "517486@qq.com","jS53dfsv5wTkrlhh3MN81wS30Tb28ylb" };
 
-	qsrand(QDateTime::currentMSecsSinceEpoch() / 1000);
-	int idx = qrand() % list.length();
+	int idx = QRandomGenerator::global()->bounded(int(list.length()));
 
 	return list.at(idx);
 }

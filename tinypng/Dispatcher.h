@@ -1,54 +1,40 @@
-﻿#pragma once
-
+#pragma once
 #include <QObject>
-#include <QEventLoop>
-#include <QMutex>
-#include <QThread>
-#include "MyTableView.h"
-#include "TableModel.h"
-#include "Console.h"
-#include "Config.h"
-#include "Compress.h"
 #include <QElapsedTimer>
+#include <QHash>
+#include <QThread>
+#include "Compress.h"
+#include "Console.h"
+#include "MyTableView.h"
 
-
-class Dispatcher : public QObject
-{
-	Q_OBJECT
-
+class Dispatcher : public QObject {
+    Q_OBJECT
 public:
-	Console* console;
-	MyTableView* tableview;
-	TableModel* model;
-	configItem config;
-	int offsetRow;
-	int runThreadNum;
-	int finishNum;
-	int failedNum;
-	int totalRowNum;
-	float totalsize; //原大小
-	float totalLessSize; //压缩总大小
-	QElapsedTimer* elapsedTimer;
-	QEventLoop* loop;
-	QMutex* mutex;
-	QList<Compress*> workers;
-	QThread* thread;
-
-
-	Dispatcher(QThread* thread, Console* console, MyTableView* tableview);
-
-	void nextTask(Compress* thread);
-	~Dispatcher();
-	void quit();
-private:
-	int getUnhandleNum();
-
-
+    Dispatcher(Console* console, MyTableView* table, QObject* parent = nullptr);
+    ~Dispatcher();
+    bool isRunning() const;
+    void run(bool failedOnly = false);
+    void quit();
 signals:
-	void started();
-
-public slots:
-	void run();
-	void doneTask(QVariant);
-	void finished();
+    void started();
+    void completed();
+    void progressChanged(int finished, int total, int failures);
+private:
+    Console* console;
+    MyTableView* tableview;
+    TableModel* model;
+    QHash<Compress*, QThread*> workers;
+    QList<int> taskRows;
+    int offset;
+    int activeWorkers;
+    int finishNum;
+    int failedNum;
+    qint64 totalSize;
+    qint64 savedSize;
+    quint64 generation;
+    bool running;
+    QElapsedTimer elapsedTimer;
+    void nextTask(Compress* worker);
+    void doneTask(Compress* worker, const QVariant& result);
+    void stopWorkers();
 };
