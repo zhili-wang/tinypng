@@ -1,4 +1,4 @@
-c561649c1ceb0a8bd4db0d218a9365ef4cde995f3faa0b40a489609ef695e94f  TinyPNG-macOS-universal-1.1.0.dmg
-8044b58c004293efbfefcf0479acf3438c623664bcefd8767a7a9b946711f9a7  TinyPNG-macOS-arm64-1.1.0.dmg
-d0a5b19c150e70328b6ff73eb4889228aa96e2745790fed0c762b149fd7e02c7  TinyPNG-Windows-x64-1.1.0.exe
-6ec843874a94abed33573eb7efa194eb032a86e74360df3a6553611e62a98e76  TinyPNG-Windows-x64-1.1.0.zip
+cb03b8fa58ca9552d2d1711395ecbe61972eed23ff51a650db7211f3ec2653cd  TinyPNG-macOS-universal-1.1.1.dmg
+63d9fae7edda1a94adca67614ec08be74efa03e1fce6511269f560e63ae591e2  TinyPNG-macOS-arm64-1.1.1.dmg
+917dd0f55e55e3f3cba4a77098c7e9dd6920984c142902bbce4c306682289f2e  TinyPNG-Windows-x64-1.1.1.exe
+2a7423f07dfe7e459dc7c2198dd468d514ae47a8d239a0fc472c1fe6f7413dc1  TinyPNG-Windows-x64-1.1.1.zip
