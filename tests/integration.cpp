@@ -328,7 +328,17 @@ int main(int argc, char** argv) {
     SettingWindow* themeSettings = new SettingWindow(&window); themeSettings->show();
     auto* themes = themeSettings->findChild<QButtonGroup*>("themeMode");
     check(themes && themes->buttons().size() == 3, "settings exposes light dark and system modes");
-    themes->button(int(ThemeMode::Dark))->setChecked(true);
+    const ThemeMode savedMode = Config(nullptr).get().themeMode;
+    themes->button(int(ThemeMode::Dark))->click(); app.processEvents();
+    check(Theme::instance()->isDark() && window.styleSheet().contains("#141c19"), "clicking dark previews the main window before saving");
+    check(themeSettings->styleSheet().contains("#141c19") && window.table->styleSheet().contains("#1d2822"), "theme preview updates settings and queue together");
+    check(Config(nullptr).get().themeMode == savedMode, "preview does not persist settings before save");
+    for (QSpinBox* spin : themeSettings->findChildren<QSpinBox*>()) check(spin->findChild<QLineEdit*>()->width() >= 60, "live theme preview keeps input digits visible");
+    themes->button(int(ThemeMode::Light))->click(); app.processEvents();
+    check(!Theme::instance()->isDark() && window.styleSheet().contains("#f4f7f5"), "clicking light previews immediately");
+    themes->button(int(ThemeMode::System))->click(); app.processEvents();
+    check(Theme::instance()->mode() == ThemeMode::System, "clicking follow system applies immediately");
+    themes->button(int(ThemeMode::Dark))->click();
     QMetaObject::invokeMethod(themeSettings, "onClickSaveBtn", Qt::DirectConnection); app.processEvents();
     check(Config(nullptr).get().themeMode == ThemeMode::Dark && Theme::instance()->isDark(), "saving theme persists preference and applies immediately");
     SettingWindow* apiSettings = new SettingWindow(&window); apiSettings->show();
@@ -349,6 +359,25 @@ int main(int argc, char** argv) {
     apiSettings->findChild<QLineEdit*>("apiKeyInput")->setText("test-key");
     QMetaObject::invokeMethod(apiSettings, "onClickSaveBtn", Qt::DirectConnection);
     check(Config(nullptr).get().tinyReqMode == TinyReqMode::Key && Config(nullptr).get().mail.isEmpty(), "API settings saves a personal KEY without auto-filling an account");
+    for (int action = 0; action < 3; ++action) {
+        SettingWindow* preview = new SettingWindow(&window); preview->show();
+        preview->findChild<QRadioButton*>("themeLight")->click(); app.processEvents();
+        check(!Theme::instance()->isDark(), "unsaved light preview is visible");
+        if (action == 0) preview->reject();
+        if (action == 1) preview->close();
+        if (action == 2) {
+            QKeyEvent escape(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+            QApplication::sendEvent(preview, &escape);
+        }
+        app.processEvents();
+        check(Theme::instance()->isDark() && Config(nullptr).get().themeMode == ThemeMode::Dark, "cancel close and Escape restore the saved theme");
+    }
+    QMetaObject::invokeMethod(&window, "onOpenSettingWindow", Qt::DirectConnection);
+    QMetaObject::invokeMethod(&window, "onOpenSettingWindow", Qt::DirectConnection);
+    int visibleSettings = 0;
+    for (SettingWindow* current : window.findChildren<SettingWindow*>()) if (current->isVisible()) ++visibleSettings;
+    check(visibleSettings == 1, "only one settings preview can be open at a time");
+    for (SettingWindow* current : window.findChildren<SettingWindow*>()) if (current->isVisible()) current->reject();
     Theme::instance()->setMode(ThemeMode::System);
     check(Theme::instance()->mode() == ThemeMode::System, "follow system mode can be restored");
     std::cout << "Passed " << checks << " integration checks\n";

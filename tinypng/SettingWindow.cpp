@@ -29,7 +29,7 @@ protected:
     }
 };
 
-SettingWindow::SettingWindow(QWidget* parent) : QDialog(parent) {
+SettingWindow::SettingWindow(QWidget* parent) : QDialog(parent), originalTheme(Theme::instance()->mode()) {
     setWindowTitle("TinyPNG · 压缩设置");
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
@@ -181,8 +181,22 @@ QCheckBox::indicator:checked { image: url(:/check-%1-checked.png); }
     newDirectory->setChecked(config.outputMode == OutputMode::NewDir);
     replaceOriginal->setChecked(config.outputMode == OutputMode::Replace);
     autoStart->setChecked(config.autoStart);
-    themeMode->button(int(config.themeMode))->setChecked(true);
+    themeMode->button(int(originalTheme))->setChecked(true);
+    for (QAbstractButton* choice : themeMode->buttons()) {
+        const ThemeMode mode = ThemeMode(themeMode->id(choice));
+        connect(choice, &QAbstractButton::toggled, this, [mode](bool checked) {
+            if (checked) Theme::instance()->setMode(mode);
+        });
+    }
 }
+void SettingWindow::done(int result) {
+    if (!previewFinished) {
+        previewFinished = true;
+        if (result != QDialog::Accepted) Theme::instance()->setMode(originalTheme);
+    }
+    QDialog::done(result);
+}
+
 void SettingWindow::onClickSaveBtn() {
     if (minSize->value() > maxSize->value()) {
         QMessageBox::warning(this, "大小范围无效", "最小文件大小不能超过最大文件大小。");

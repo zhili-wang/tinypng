@@ -158,6 +158,13 @@ void MainWindow::onClickPauseBtn() {
     progressLabel->setText("已暂停 · 点击开始压缩继续");
 }
 void MainWindow::onOpenSettingWindow() {
+    for (SettingWindow* settings : findChildren<SettingWindow*>()) {
+        if (settings->isVisible()) {
+            settings->raise();
+            settings->activateWindow();
+            return;
+        }
+    }
     SettingWindow* settings = new SettingWindow(this);
     connect(settings, &QDialog::accepted, this, &MainWindow::refreshSizeHint);
     settings->show();

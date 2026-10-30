@@ -1,6 +1,6 @@
 param(
     [string]$QtRoot = $env:TINYPNG_QT_DIR,
-    [string]$Version = "1.2.0"
+    [string]$Version = "1.2.1"
 )
 $ErrorActionPreference = "Stop"
 if ($Version -notmatch "^\d+\.\d+\.\d+$") { throw "无效版本号：$Version" }
@@ -21,7 +21,7 @@ $buildId = [guid]::NewGuid().ToString("N").Substring(0, 8)
 $buildRoot = Join-Path $projectRoot "build/windows-x64-$Version-$buildId"
 $checksRoot = Join-Path $buildRoot "checks"
 $stage = Join-Path $buildRoot "package"
-$installerRoot = Join-Path $projectRoot "Installer"
+$installerRoot = Join-Path (Join-Path $projectRoot "Installer") $Version
 New-Item -ItemType Directory -Force $checksRoot, $installerRoot | Out-Null
 Push-Location $checksRoot
 try {
@@ -70,4 +70,8 @@ $env:TINYPNG_INSTALLER_DIR = $installerRoot
 if ($LASTEXITCODE) { throw "Windows 安装程序生成失败。" }
 $zip = Join-Path $installerRoot "TinyPNG-Windows-x64-$Version.zip"
 Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zip -Force
+$sums = Get-ChildItem $installerRoot -File | Where-Object { $_.Extension -in ".dmg", ".exe", ".zip" } | Sort-Object Name | ForEach-Object {
+    (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + "  " + $_.Name
+}
+[System.IO.File]::WriteAllLines((Join-Path $installerRoot "SHA256SUMS.txt"), [string[]]$sums, [System.Text.UTF8Encoding]::new($false))
 Write-Host "已生成 Windows x64 安装程序和便携 ZIP：$installerRoot"

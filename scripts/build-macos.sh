@@ -3,7 +3,7 @@ set -euo pipefail
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 qt_root="${1:-${TINYPNG_QT_DIR:-}}"
-version="${TINYPNG_VERSION:-1.2.0}"
+version="${TINYPNG_VERSION:-1.2.1}"
 architectures="${TINYPNG_MAC_ARCHS:-$(uname -m)}"
 if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "无效版本号：$version" >&2; exit 1; fi
 if [[ -n "$qt_root" ]]; then
@@ -25,7 +25,8 @@ if [[ "$architectures" == *x86_64* && "$architectures" == *arm64* ]]; then arch_
 mkdir -p "$project_root/build"
 build_root="$(mktemp -d "$project_root/build/macos-$arch_label-$version.XXXXXX")"
 checks_root="$build_root/checks"
-mkdir -p "$checks_root" "$project_root/Installer"
+installer_root="$project_root/Installer/$version"
+mkdir -p "$checks_root" "$installer_root"
 cd "$checks_root"
 "$qmake_bin" "$project_root/tests/regression.pro" -after 'CONFIG+=release' 'CONFIG-=debug' "QMAKE_APPLE_DEVICE_ARCHS=$architectures"
 make -j "$(sysctl -n hw.ncpu)"
@@ -57,7 +58,8 @@ stage="$(mktemp -d "$build_root/dmg-stage.XXXXXX")"
 trap 'rm -rf "$stage"' EXIT
 cp -R "$build_root/TinyPNG.app" "$stage/"
 ln -s /Applications "$stage/Applications"
-package="$project_root/Installer/TinyPNG-macOS-$arch_label-$version.dmg"
+package="$installer_root/TinyPNG-macOS-$arch_label-$version.dmg"
 hdiutil create -volname TinyPNG -srcfolder "$stage" -ov -format UDZO "$package"
 hdiutil verify "$package"
+python3 "$project_root/scripts/package-checksums.py" "$installer_root"
 printf '已生成：%s\n' "$package"

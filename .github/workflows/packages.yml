@@ -6,7 +6,7 @@ on:
       version:
         description: 'Package version'
         required: true
-        default: '1.2.0'
+        default: '1.2.1'
         type: string
   push:
     tags:
@@ -30,16 +30,18 @@ jobs:
           arch: clang_64
           cache: true
       - name: Build and verify universal DMG
+        id: packages
         shell: bash
         env:
           TINYPNG_MAC_ARCHS: 'x86_64 arm64'
         run: |
           export TINYPNG_VERSION="${TINYPNG_RELEASE_VERSION#v}"
+          echo "version=$TINYPNG_VERSION" >> "$GITHUB_OUTPUT"
           bash scripts/build-macos.sh
       - uses: actions/upload-artifact@v4
         with:
           name: TinyPNG-macOS-universal
-          path: Installer/TinyPNG-macOS-universal-*.dmg
+          path: Installer/${{ steps.packages.outputs.version }}/TinyPNG-macOS-universal-*.dmg
           if-no-files-found: error
 
   windows:
@@ -56,14 +58,16 @@ jobs:
           arch: win64_msvc2022_64
           cache: true
       - name: Build EXE installer and portable ZIP
+        id: packages
         shell: pwsh
         run: |
           $version = $env:TINYPNG_RELEASE_VERSION.TrimStart('v')
+          "version=$version" >> $env:GITHUB_OUTPUT
           ./scripts/build-windows.ps1 -Version $version
       - uses: actions/upload-artifact@v4
         with:
           name: TinyPNG-Windows-x64
           path: |
-            Installer/TinyPNG-Windows-x64-*.exe
-            Installer/TinyPNG-Windows-x64-*.zip
+            Installer/${{ steps.packages.outputs.version }}/TinyPNG-Windows-x64-*.exe
+            Installer/${{ steps.packages.outputs.version }}/TinyPNG-Windows-x64-*.zip
           if-no-files-found: error

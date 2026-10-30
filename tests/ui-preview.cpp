@@ -70,5 +70,18 @@ int main(int argc, char** argv) {
         }
         settings->close();
     }
+    Theme::instance()->setMode(ThemeMode::Light);
+    auto* preview = new SettingWindow(&window); preview->show();
+    preview->findChild<QRadioButton*>("themeDark")->click();
+    capture(&window, "tinypng-live-preview-dark-workspace.png");
+    capture(preview, "tinypng-live-preview-dark-settings.png");
+    if (!Theme::instance()->isDark()) return 5;
+    preview->findChild<QRadioButton*>("themeLight")->click();
+    capture(&window, "tinypng-live-preview-light-workspace.png");
+    if (Theme::instance()->isDark()) return 6;
+    preview->findChild<QRadioButton*>("themeSystem")->click();
+    if (Theme::instance()->mode() != ThemeMode::System) return 7;
+    preview->close();
+    if (Theme::instance()->mode() != ThemeMode::Light) return 8;
     std::cout << "Rendered actual Qt workspace, empty warnings, dismissal and settings in both themes\n";
 }
