@@ -29,4 +29,5 @@ private:
     QRadioButton* newDirectory;
     QRadioButton* replaceOriginal;
     QCheckBox* autoStart;
+    QCheckBox* autoRetry;
 };

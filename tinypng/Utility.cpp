@@ -2,6 +2,7 @@
 #include <QFileInfo>
 #include <QXmlStreamReader>
 #include <QXmlStreamWriter>
+#include <QLocale>
 
 
 bool Utility::checkFileFormat(const QString& name) {
@@ -23,6 +24,8 @@ QStringList Utility::getFormatList() {
 	suffiexs << "*.jpeg";
 	suffiexs << "*.webp";
 	suffiexs << "*.svg";
+	suffiexs << "*.avif";
+	suffiexs << "*.jxl";
 	return suffiexs;
 }
 
@@ -31,6 +34,27 @@ QString Utility::getFileDialogFilter() {
     // Native dialogs can match filters case-sensitively on some platforms.
     for (const QString& pattern : getFormatList()) patterns.append(pattern.toUpper());
     return "图片 (" + patterns.join(' ') + ");;所有文件 (*)";
+}
+
+bool Utility::usesWebsite(const QString& path, TinyReqMode mode) {
+    const QString suffix = QFileInfo(path).suffix().toLower();
+    return mode == TinyReqMode::Web || suffix == "svg" || suffix == "jxl";
+}
+
+QString Utility::imageMimeType(const QString& path) {
+    const QString suffix = QFileInfo(path).suffix().toLower();
+    if (suffix == "svg") return "image/svg+xml";
+    if (suffix == "avif") return "image/avif";
+    if (suffix == "jxl") return "image/jxl";
+    if (suffix == "webp") return "image/webp";
+    if (suffix == "png") return "image/png";
+    return "image/jpeg";
+}
+
+QString Utility::webSizeError(qint64 bytes) {
+    return QString("文件大小 %1（%2 字节），超过 TinyPNG 官网免费模式的单张上限 5 MB（%3 字节）。请先减小图片；调大本地“大小范围”不会提高官网上限。")
+        .arg(QLocale(QLocale::English).formattedDataSize(bytes, 2, QLocale::DataSizeTraditionalFormat))
+        .arg(bytes).arg(webMaxFileSize());
 }
 
 bool Utility::optimizeSvg(const QByteArray& input, QByteArray& output, QString& error) {

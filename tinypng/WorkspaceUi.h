@@ -126,7 +126,7 @@ void setup(QMainWindow* window, QTableView* table, QTextBrowser* console) {
     title->addWidget(label("让每一张图片，更轻一点。", "subtitle"));
     header->addLayout(title);
     header->addStretch();
-    header->addWidget(label("PNG / JPG / JPEG / WebP / SVG", "formats"), 0, Qt::AlignVCenter);
+    header->addWidget(label("PNG / JPG / JPEG / WebP / SVG / AVIF / JXL", "formats"), 0, Qt::AlignVCenter);
     layout->addLayout(header);
 
     QHBoxLayout* stats = new QHBoxLayout;

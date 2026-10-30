@@ -131,10 +131,13 @@ void MainWindow::refreshActions() {
 void MainWindow::refreshSizeHint() {
     const configItem config = Config(this).get();
     const QLocale locale(QLocale::English);
-    sizeRangeLabel->setText(QString("当前大小范围：%1 – %2 · 可在设置中调整")
+    const int maximum = config.tinyReqMode == TinyReqMode::Web
+        ? qMin(config.maxsize, int(Utility::webMaxFileSize())) : config.maxsize;
+    sizeRangeLabel->setText(QString("当前大小范围：%1 – %2 · %3")
         .arg(locale.formattedDataSize(config.minsize, 2, QLocale::DataSizeTraditionalFormat),
-             locale.formattedDataSize(config.maxsize, 2, QLocale::DataSizeTraditionalFormat)));
-    sizeRangeLabel->setToolTip(QString("本地筛选范围：%1 至 %2 字节。压缩服务可能另有大小限制，调整此范围不会改变服务限制。")
+             locale.formattedDataSize(maximum, 2, QLocale::DataSizeTraditionalFormat),
+             config.tinyReqMode == TinyReqMode::Web ? "官网免费模式：单张最多 5 MB" : "API KEY 模式 · SVG / JXL 单张最多 5 MB"));
+    sizeRangeLabel->setToolTip(QString("本地筛选范围：%1 至 %2 字节。官网免费模式（含 SVG / JXL）的单张上限为 5 MB，调大本地范围不会提高官网上限。")
         .arg(config.minsize).arg(config.maxsize));
 }
 void MainWindow::showImportNotice(const QString& message) {
@@ -223,7 +226,7 @@ void MainWindow::createScannner(const QStringList& files) {
             if (scanSkipped > 1) message += "\n全部跳过原因可在下方活动记录中查看。";
             showImportNotice(message);
         } else if (scanAccepted == 0) {
-            showImportNotice("没有找到 PNG、JPG/JPEG、WebP 或 SVG 图片。请检查文件夹内容和当前大小范围。");
+            showImportNotice("没有找到 PNG、JPG/JPEG、WebP、SVG、AVIF 或 JXL 图片。请检查文件夹内容和当前大小范围。");
         }
         if (scanAccepted > 0 && Config(this).get().autoStart) onClickStartBtn();
     });
@@ -232,7 +235,7 @@ void MainWindow::createScannner(const QStringList& files) {
     stateLabel->setText("正在读取图片");
     progressLabel->setText("扫描文件中…");
     progress->setValue(0);
-    scanner->start(files, config.minsize, config.maxsize);
+    scanner->start(files, config.minsize, config.maxsize, config.tinyReqMode);
     refreshActions();
 }
 void MainWindow::closeEvent(QCloseEvent* event) {

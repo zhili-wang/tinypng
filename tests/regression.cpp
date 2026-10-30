@@ -41,7 +41,11 @@ int main(int argc, char** argv) {
         check(Utility::checkFileFormat(name), "JPG and JPEG accepted regardless of extension case");
     }
     check(Utility::getFileDialogFilter().contains("*.jpg") && Utility::getFileDialogFilter().contains("*.JPG"), "native file dialog includes lowercase and uppercase JPG");
-    check(!Utility::checkFileFormat("picture.avif"), "AVIF not added");
+    for (const QString& name : {QString("picture.avif"), QString("picture.AVIF"), QString("picture.AvIf"),
+            QString("picture.jxl"), QString("picture.JXL"), QString("picture.JxL")}) {
+        check(Utility::checkFileFormat(name), "AVIF and JXL accepted regardless of extension case");
+    }
+    check(Utility::getFileDialogFilter().contains("*.AVIF") && Utility::getFileDialogFilter().contains("*.JXL"), "native file dialog includes both new formats");
     check(!Utility::checkFileFormat("picture.svg.txt"), "incorrect extension rejected");
     check(!Utility::checkFileFormat("/directory.svg/picture"), "extension in directory rejected");
     TableModelRow row;

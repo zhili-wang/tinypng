@@ -3,6 +3,9 @@
 #include <QElapsedTimer>
 #include <QHash>
 #include <QThread>
+#include <QTimer>
+#include <QQueue>
+#include <QSet>
 #include <functional>
 #include "Compress.h"
 #include "Console.h"
@@ -38,9 +41,20 @@ private:
     qint64 savedSize;
     quint64 generation;
     bool running;
+    bool automaticRetry = false;
+    bool throttled = false;
+    int batchNumber = 0;
+    QSet<int> failedRowsInBatch;
+    QHash<Compress*, QTimer*> retryTimers;
+    QQueue<Compress*> pendingRetries;
+    QTimer* slowRetryTimer;
     QElapsedTimer elapsedTimer;
     void startBatch();
     void startTask(Compress* worker, int row);
     void doneTask(Compress* worker, const QVariant& result);
     void stopWorkers();
+    void enableThrottling();
+    void queueRetry(Compress* worker, int row, int attempt);
+    void scheduleSlowRetry();
+    void nextBatch();
 };

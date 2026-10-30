@@ -1,7 +1,7 @@
 # Qt Widgets desktop application (Qt 5.14+ / Qt 6).
 
 TARGET = VsTinypng
-VERSION = 1.2.1
+VERSION = 1.2.2
 
 QT = core gui widgets network
 

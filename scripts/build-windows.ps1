@@ -1,6 +1,6 @@
 param(
     [string]$QtRoot = $env:TINYPNG_QT_DIR,
-    [string]$Version = "1.2.1"
+    [string]$Version = "1.2.2"
 )
 $ErrorActionPreference = "Stop"
 if ($Version -notmatch "^\d+\.\d+\.\d+$") { throw "无效版本号：$Version" }

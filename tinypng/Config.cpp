@@ -1,8 +1,9 @@
 #include "Config.h"
 #include <QCryptographicHash>
+#include "Utility.h"
 
 Config::Config(QObject* parent) : QObject(parent) {
-    qset = new QSettings("lane", "tinypng", this);
+    qset = new QSettings(QSettings::defaultFormat(), QSettings::UserScope, "lane", "tinypng", this);
     qset->beginGroup("Property");
     if (!qset->contains("credentialsMigrated")) {
         const auto digest = [](const QString& value) { return QCryptographicHash::hash(value.toUtf8(), QCryptographicHash::Sha256).toHex(); };
@@ -24,6 +25,7 @@ void Config::set(configItem item) {
     qset->setValue("maxsize", item.maxsize);
     qset->setValue("tinyReqMode", int(item.tinyReqMode));
     qset->setValue("autostart", item.autoStart);
+    qset->setValue("autoRetry", item.autoRetry);
     qset->setValue("theme", int(item.themeMode));
     qset->endGroup();
 }
@@ -34,11 +36,12 @@ configItem Config::get() {
     item.key = qset->value("key").toString();
     item.proxy = qset->value("proxy").toString();
     item.minsize = qset->value("minsize", 0).toInt();
-    item.maxsize = qset->value("maxsize", 5 * 1024 * 1024).toInt();
-    if (item.maxsize <= 0) item.maxsize = 5 * 1024 * 1024;
+    item.maxsize = qset->value("maxsize", int(Utility::webMaxFileSize())).toInt();
+    if (item.maxsize <= 0) item.maxsize = int(Utility::webMaxFileSize());
     item.outputMode = qset->value("outputMode", int(OutputMode::Replace)).toInt() == 1 ? OutputMode::Replace : OutputMode::NewDir;
     item.tinyReqMode = qset->value("tinyReqMode", 0).toInt() == 1 ? TinyReqMode::Key : TinyReqMode::Web;
     item.autoStart = qset->value("autostart", true).toBool();
+    item.autoRetry = qset->value("autoRetry", false).toBool();
     const int theme = qset->value("theme", int(ThemeMode::System)).toInt();
     item.themeMode = theme >= 0 && theme <= 2 ? ThemeMode(theme) : ThemeMode::System;
     qset->endGroup();

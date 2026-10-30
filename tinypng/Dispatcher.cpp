@@ -1,10 +1,24 @@
 #include "Dispatcher.h"
 #include <QTimer>
+#include <QRandomGenerator>
+
+namespace {
+int slowDelay() { return QRandomGenerator::global()->bounded(2000, 5001); }
+}
 
 Dispatcher::Dispatcher(Console* output, MyTableView* table, QObject* parent, WorkerFactory factory)
     : QObject(parent), console(output), tableview(table), model(static_cast<TableModel*>(table->model())),
       offset(0), batchRemaining(0), workerFactory(factory), finishNum(0), failedNum(0), totalSize(0), savedSize(0), generation(0), running(false) {
     qRegisterMetaType<CompressResult>();
+    slowRetryTimer = new QTimer(this);
+    slowRetryTimer->setSingleShot(true);
+    connect(slowRetryTimer, &QTimer::timeout, this, [this]() {
+        if (!running || pendingRetries.isEmpty()) return;
+        Compress* worker = pendingRetries.dequeue();
+        const int row = assignments.value(worker, -1);
+        if (row >= 0) startTask(worker, row);
+        scheduleSlowRetry();
+    });
 }
 Dispatcher::~Dispatcher() { quit(); }
 bool Dispatcher::isRunning() const { return running; }
@@ -14,6 +28,9 @@ void Dispatcher::run(bool failedOnly) {
     taskRows.clear();
     retries.clear();
     assignments.clear();
+    throttled = false;
+    batchNumber = 0;
+    failedRowsInBatch.clear();
     for (int row = 0; row < model->rowCount(); ++row) {
         if (model->getRow(row).needsCompression(failedOnly)) taskRows.append(row);
     }
@@ -26,6 +43,7 @@ void Dispatcher::run(bool failedOnly) {
     running = true;
     const quint64 batch = ++generation;
     const configItem config = Config(this).get();
+    automaticRetry = config.autoRetry;
     QString outputRoot = model->getRow(taskRows.first()).root;
     if (config.outputMode == OutputMode::NewDir && !outputRoot.isEmpty()) outputRoot += "_tiny";
     console->tip(failedOnly ? QString("重试 %1 个失败项").arg(taskRows.size()) : QString("开始压缩 %1 个文件").arg(taskRows.size()));
@@ -59,14 +77,63 @@ void Dispatcher::startBatch() {
         quit();
         return;
     }
-    batchRemaining = qMin(10, int(taskRows.size()) - offset);
-    console->tip(QString("第 %1 批 · %2 张并发 · 失败自动重试最多 2 次")
-        .arg(offset / 10 + 1).arg(batchRemaining));
+    failedRowsInBatch.clear();
+    batchRemaining = qMin(throttled ? 3 : 10, int(taskRows.size()) - offset);
+    console->tip(QString("第 %1 批 · %2 张并发 · %3")
+        .arg(++batchNumber).arg(batchRemaining)
+        .arg(automaticRetry ? "失败自动重试最多 2 次" : "自动重试已关闭"));
     int started = 0;
     for (Compress* worker : workers.keys()) {
         if (started++ >= batchRemaining) break;
         startTask(worker, taskRows.at(offset++));
     }
+}
+
+void Dispatcher::enableThrottling() {
+    if (throttled) return;
+    throttled = true;
+    console->tip("本批已有 3 张图片请求失败，已降低访问频率：重试间隔 2–5 秒，后续每批最多 3 张。");
+    for (Compress* worker : retryTimers.keys()) {
+        QTimer* timer = retryTimers.take(worker);
+        timer->stop(); timer->deleteLater();
+        if (!pendingRetries.contains(worker)) pendingRetries.enqueue(worker);
+    }
+    scheduleSlowRetry();
+}
+
+void Dispatcher::queueRetry(Compress* worker, int row, int attempt) {
+    if (throttled) {
+        if (!pendingRetries.contains(worker)) pendingRetries.enqueue(worker);
+        scheduleSlowRetry();
+        return;
+    }
+    QTimer* timer = new QTimer(this);
+    timer->setSingleShot(true);
+    retryTimers.insert(worker, timer);
+    const quint64 batch = generation;
+    connect(timer, &QTimer::timeout, this, [this, worker, row, batch, timer]() {
+        retryTimers.remove(worker); timer->deleteLater();
+        if (running && generation == batch && assignments.value(worker, -1) == row) {
+            if (throttled) {
+                pendingRetries.enqueue(worker); scheduleSlowRetry();
+            } else startTask(worker, row);
+        }
+    });
+    timer->start(attempt * 1000);
+}
+
+void Dispatcher::scheduleSlowRetry() {
+    if (running && !pendingRetries.isEmpty() && !slowRetryTimer->isActive()) slowRetryTimer->start(slowDelay());
+}
+
+void Dispatcher::nextBatch() {
+    if (!throttled || offset >= taskRows.size()) { startBatch(); return; }
+    const int delay = slowDelay();
+    console->tip(QString("访问降速中 · %1 秒后开始下一批").arg(delay / 1000.0, 0, 'f', 1));
+    const quint64 batch = generation;
+    QTimer::singleShot(delay, this, [this, batch]() {
+        if (running && generation == batch) startBatch();
+    });
 }
 
 void Dispatcher::startTask(Compress* worker, int row) {
@@ -85,16 +152,16 @@ void Dispatcher::doneTask(Compress* worker, const QVariant& variant) {
     if (result.row < 0 || result.row >= model->rowCount() || assignments.value(worker, -1) != result.row) return;
     TableModelRow item = model->getRow(result.row);
     const QString displayPath = item.path.toHtmlEscaped();
-    if (result.errcode != 0 && retries.value(result.row) < 2) {
+    if (result.errcode != 0 && result.retryable) {
+        failedRowsInBatch.insert(result.row);
+        if (failedRowsInBatch.size() >= 3) enableThrottling();
+    }
+    if (result.errcode != 0 && automaticRetry && result.retryable && retries.value(result.row) < 2) {
         const int retry = retries.value(result.row) + 1;
         retries.insert(result.row, retry);
-        console->tip(QString("%1 · %2 · %3 秒后自动重试 %4/2")
-            .arg(displayPath, result.errmsg.toHtmlEscaped()).arg(retry).arg(retry));
-        const quint64 batch = generation;
-        // Waiting retries retain their slot; paused callbacks must not start another request.
-        QTimer::singleShot(retry * 1000, this, [this, worker, result, batch]() {
-            if (running && generation == batch && assignments.value(worker, -1) == result.row) startTask(worker, result.row);
-        });
+        console->tip(QString("%1 · %2 · %3自动重试 %4/2")
+            .arg(displayPath, result.errmsg.toHtmlEscaped(), throttled ? "按 2–5 秒间隔排队" : QString("%1 秒后").arg(retry)).arg(retry));
+        queueRetry(worker, result.row, retry);
         return;
     }
     assignments.remove(worker);
@@ -113,7 +180,7 @@ void Dispatcher::doneTask(Compress* worker, const QVariant& variant) {
     }
     model->replaceRow(result.row, item);
     emit progressChanged(finishNum, taskRows.size(), failedNum);
-    if (--batchRemaining == 0) startBatch();
+    if (--batchRemaining == 0) nextBatch();
 }
 
 void Dispatcher::stopWorkers() {
@@ -135,6 +202,10 @@ void Dispatcher::quit() {
     if (!running) return;
     running = false;
     ++generation;
+    slowRetryTimer->stop();
+    pendingRetries.clear();
+    for (QTimer* timer : retryTimers) { timer->stop(); timer->deleteLater(); }
+    retryTimers.clear();
     stopWorkers();
     for (int row : taskRows) {
         TableModelRow item = model->getRow(row);

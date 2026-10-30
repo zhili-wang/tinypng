@@ -47,7 +47,7 @@ bool Compress::waitForReply(QNetworkReply* reply, int timeoutSeconds) {
     }
     if (reply->error() != QNetworkReply::NoError) {
         if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 413) {
-            emitError("图片超过压缩服务允许的大小（HTTP 413）。请先减小图片；调整本地“大小范围”不会提高服务限制。");
+            emitError("图片超过压缩服务允许的大小（HTTP 413）。请先减小图片；调整本地“大小范围”不会提高服务限制。", false);
         } else {
             emitError(QString("请求失败：%1；%2").arg(reply->errorString(), QString::fromUtf8(reply->readAll())));
         }
@@ -60,9 +60,14 @@ void Compress::process(int taskRow, const QString& root, const QString& taskPath
     row = taskRow;
     path = taskPath;
     if (isCancelled()) return;
+    usingWeb = Utility::usesWebsite(path, config.tinyReqMode);
     QFile file(root + path);
     if (!file.open(QIODevice::ReadOnly)) {
         emitError("打开文件失败：" + file.errorString());
+        return;
+    }
+    if (usingWeb && file.size() > Utility::webMaxFileSize()) {
+        emitError(Utility::webSizeError(file.size()), false);
         return;
     }
     const QByteArray binary = file.readAll();
@@ -71,6 +76,10 @@ void Compress::process(int taskRow, const QString& root, const QString& taskPath
         return;
     }
     file.close();
+    if (usingWeb && binary.size() > Utility::webMaxFileSize()) {
+        emitError(Utility::webSizeError(binary.size()), false);
+        return;
+    }
     // Create all network objects in the worker thread.
     if (!mgr) {
         mgr = new QNetworkAccessManager(this);
@@ -79,13 +88,9 @@ void Compress::process(int taskRow, const QString& root, const QString& taskPath
             mgr->setProxy(QNetworkProxy(QNetworkProxy::HttpProxy, proxyUrl.host(), proxyUrl.port(8080)));
         }
     }
-    const QString suffix = QFileInfo(path).suffix().toLower();
-    // SVG is supported by the website; the documented developer API lists raster formats only.
-    usingWeb = config.tinyReqMode == TinyReqMode::Web || suffix == "svg";
+    // SVG and JPEG XL use the website even when API KEY mode is selected.
     if (usingWeb) {
-        const QString type = suffix == "svg" ? "image/svg+xml" : suffix == "webp" ? "image/webp"
-            : suffix == "png" ? "image/png" : "image/jpeg";
-        processWeb(binary, type);
+        processWeb(binary, Utility::imageMimeType(path));
         return;
     }
     QNetworkRequest request(apiBase.resolved(QUrl("shrink")));
@@ -177,11 +182,12 @@ void Compress::saveOutput(const QByteArray& data) {
     emit finished(QVariant::fromValue(result));
 }
 
-void Compress::emitError(const QString& message) {
+void Compress::emitError(const QString& message, bool retryable) {
     if (isCancelled()) return;
     CompressResult result;
     result.row = row;
     result.errcode = 1;
+    result.retryable = retryable;
     result.errmsg = message;
     emit finished(QVariant::fromValue(result));
 }

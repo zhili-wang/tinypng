@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 #include "SettingWindow.h"
 #include "Theme.h"
+#include "Utility.h"
 #include <QApplication>
 #include <QTemporaryDir>
 #include <QDir>
@@ -17,12 +18,13 @@ int main(int argc, char** argv) {
     config.autoStart = false; config.maxsize = 5 * 1024 * 1024;
     config.outputMode = OutputMode::Replace; config.tinyReqMode = TinyReqMode::Web;
     config.themeMode = ThemeMode::Light; Config(nullptr).set(config);
+    if (!Config(nullptr).qset->fileName().startsWith(preferences.path())) return 9;
     QFont font("PingFang SC"); font.setPointSize(10); app.setFont(font);
     QDir output(argc > 1 ? QString::fromLocal8Bit(argv[1]) : QDir::tempPath());
     output.mkpath(".");
     MainWindow window;
     auto* model = static_cast<TableModel*>(window.table->model());
-    const QStringList paths = {"images/hero-banner.png", "icons/brand-logo.svg", "photos/product-cover.webp", "images/navigation-icons.svg", "photos/lifestyle.jpg"};
+    const QStringList paths = {"images/hero-banner.png", "icons/brand-logo.svg", "photos/product-cover.avif", "images/navigation-icons.jxl", "photos/lifestyle.jpg"};
     for (int i = 0; i < paths.size(); ++i) {
         TableModelRow row{}; row.path = paths.at(i); row.size = i == 1 ? 24800 : 1800000;
         row.status = i < 2 ? 2 : i == 2 ? -1 : 0;
@@ -30,8 +32,8 @@ int main(int argc, char** argv) {
         model->addRow(row);
     }
     window.console->info("1/5 · images/hero-banner.png · 已完成");
-    window.console->tip("photos/product-cover.webp · 请求失败 · 1 秒后自动重试 1/2");
-    window.console->error("3/5 · photos/product-cover.webp · 重试 2 次后仍失败");
+    window.console->tip("自动重试已关闭，可在设置中开启");
+    window.console->error("3/5 · photos/product-cover.avif · 请求失败，可点击“重试失败项”");
     auto capture = [&](QWidget* widget, const QString& name) {
         QEventLoop settle; QTimer::singleShot(120, &settle, &QEventLoop::quit); settle.exec();
         app.processEvents();
@@ -46,7 +48,7 @@ int main(int argc, char** argv) {
         window.resize(840, 740); capture(&window, "tinypng-queue-compact-" + suffix + ".png");
     }
     model->removeAll();
-    const QString warning = "已添加 0 张图片，1 个文件未添加。\nsample-jpg-files-sample_5184x3456.jpg：文件大小 5.30 MB（5554547 字节），超过当前上限 5.00 MB（5242880 字节）。可在“设置＞大小范围”中调整。";
+    const QString warning = "已添加 0 张图片，1 个文件未添加。\nsample-jpg-files-sample_5184x3456.jpg：" + Utility::webSizeError(5554547);
     for (ThemeMode mode : {ThemeMode::Light, ThemeMode::Dark}) {
         Theme::instance()->setMode(mode);
         config.themeMode = mode; Config(nullptr).set(config);
@@ -60,6 +62,7 @@ int main(int argc, char** argv) {
         if (window.table->viewport()->height() <= withNotice) return 3;
         auto* settings = new SettingWindow(&window);
         settings->show();
+        if (settings->findChild<QCheckBox*>("autoRetry")->isChecked()) return 10;
         for (auto* radio : settings->findChildren<QRadioButton*>()) if (radio->text() == "API KEY") radio->setChecked(true);
         capture(settings, "tinypng-settings-" + suffix + ".png");
         for (auto* spin : settings->findChildren<QSpinBox*>()) {

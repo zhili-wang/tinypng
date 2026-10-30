@@ -1,6 +1,7 @@
 #include "SettingWindow.h"
 #include "Theme.h"
 #include "WorkspaceUi.h"
+#include "Utility.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -81,8 +82,9 @@ QCheckBox::indicator:checked { image: url(:/check-%1-checked.png); }
     credentialForm->addRow("API KEY", keyInput);
     serviceLayout->addWidget(credentials);
     connect(keyMode, &QRadioButton::toggled, credentials, &QWidget::setVisible);
-    QLabel* svg = new QLabel("SVG 使用官网压缩接口，无需 API KEY。");
+    QLabel* svg = new QLabel("SVG / JXL 使用官网压缩接口，无需 API KEY，单张最多 5 MB。");
     svg->setObjectName("muted");
+    svg->setWordWrap(true);
     serviceLayout->addWidget(svg);
     column->addWidget(service);
     QGroupBox* files = new QGroupBox("文件与输出");
@@ -125,8 +127,9 @@ QCheckBox::indicator:checked { image: url(:/check-%1-checked.png); }
     sizes->addWidget(new QLabel("至"));
     sizes->addWidget(spinControl(maxSize, "maxSize"));
     form->addRow("大小范围", sizeRange);
-    QLabel* sizeHelp = new QLabel("默认最大 5120 KB（5 MB）。超出范围的文件会跳过并显示原因。\n此范围仅用于本地筛选，压缩服务可能另有大小限制。");
+    QLabel* sizeHelp = new QLabel("官网免费模式单张最多 5 MB（5120 KB），调大此范围不会提高上限。\nSVG / JXL 始终遵守官网上限。超限文件会显示跳过原因。");
     sizeHelp->setWordWrap(true);
+    sizeHelp->setMinimumHeight(sizeHelp->fontMetrics().lineSpacing() * 4);
     sizeHelp->setObjectName("muted");
     form->addRow(sizeHelp);
     proxyInput = new QLineEdit;
@@ -140,6 +143,10 @@ QCheckBox::indicator:checked { image: url(:/check-%1-checked.png); }
     filesLayout->addWidget(replaceOriginal);
     autoStart = new QCheckBox("添加图片后自动开始压缩");
     filesLayout->addWidget(autoStart);
+    autoRetry = new QCheckBox("失败时自动重试（最多 2 次）");
+    autoRetry->setObjectName("autoRetry");
+    autoRetry->setToolTip("默认关闭；开启后最多重试 2 次。本批至少 3 张请求失败时，按 2–5 秒间隔排队重试，后续每批最多 3 张。超过服务大小上限的文件不自动重试。");
+    filesLayout->addWidget(autoRetry);
     column->addWidget(files);
     QFormLayout* appearance = new QFormLayout;
     QWidget* themeChoices = new QWidget;
@@ -181,6 +188,7 @@ QCheckBox::indicator:checked { image: url(:/check-%1-checked.png); }
     newDirectory->setChecked(config.outputMode == OutputMode::NewDir);
     replaceOriginal->setChecked(config.outputMode == OutputMode::Replace);
     autoStart->setChecked(config.autoStart);
+    autoRetry->setChecked(config.autoRetry);
     themeMode->button(int(originalTheme))->setChecked(true);
     for (QAbstractButton* choice : themeMode->buttons()) {
         const ThemeMode mode = ThemeMode(themeMode->id(choice));
@@ -202,6 +210,10 @@ void SettingWindow::onClickSaveBtn() {
         QMessageBox::warning(this, "大小范围无效", "最小文件大小不能超过最大文件大小。");
         return;
     }
+    if (webMode->isChecked() && qint64(minSize->value()) * 1024 > Utility::webMaxFileSize()) {
+        QMessageBox::warning(this, "大小范围无效", "官网免费模式单张最多 5 MB，最小文件大小不能超过此上限。");
+        return;
+    }
     if (keyMode->isChecked() && keyInput->text().trimmed().isEmpty()) {
         QMessageBox::warning(this, "缺少 API 配置", "请填写你自己的 API KEY。");
         return;
@@ -214,6 +226,7 @@ void SettingWindow::onClickSaveBtn() {
     config.outputMode = newDirectory->isChecked() ? OutputMode::NewDir : OutputMode::Replace;
     config.tinyReqMode = keyMode->isChecked() ? TinyReqMode::Key : TinyReqMode::Web;
     config.autoStart = autoStart->isChecked();
+    config.autoRetry = autoRetry->isChecked();
     config.themeMode = ThemeMode(themeMode->checkedId());
     Config(this).set(config);
     Theme::instance()->setMode(config.themeMode);

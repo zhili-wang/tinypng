@@ -26,6 +26,7 @@ struct configItem {
 	OutputMode outputMode;
 	TinyReqMode tinyReqMode;
 	bool autoStart; //添加资源后自动开始压缩
+    bool autoRetry = false;
 	int minsize;
 	int maxsize;
 };

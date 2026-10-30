@@ -8,6 +8,7 @@
 #include <QHash>
 #include <QSet>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <memory>
 
 // Local HTTP service exercises the real upload/process/download worker without external requests.
@@ -17,13 +18,19 @@ public:
     QHash<int, int> attempts;
     QSet<int> terminal;
     int active = 0, maximumActive = 0, uploaded = 0;
+    int requests = 0;
+    QStringList webMimeTypes;
+    QElapsedTimer uploadClock;
+    QList<qint64> uploadTimes;
     bool barriersHeld = true, webTypesCorrect = true, noWebAuth = true;
     bool apiUploadAuth = false, apiDownloadAuth = false;
     bool batching = false;
     bool failAll = false;
+    bool transientAll = false;
     QString outputVariant;
     MockService() {
         listen(QHostAddress::LocalHost);
+        uploadClock.start();
         connect(this, &QTcpServer::newConnection, this, [this]() {
             while (hasPendingConnections()) {
                 QTcpSocket* socket = nextPendingConnection();
@@ -47,6 +54,8 @@ public:
     void reset() {
         attempts.clear(); terminal.clear(); stored.clear(); outputs.clear();
         active = maximumActive = uploaded = 0;
+        requests = 0; webMimeTypes.clear();
+        uploadTimes.clear(); uploadClock.restart();
         barriersHeld = true;
     }
 private:
@@ -61,6 +70,11 @@ private:
         return match.hasMatch() ? match.captured(1).toInt() : -1;
     }
     void handle(QTcpSocket* socket, const QByteArray& header, const QByteArray& body) {
+        ++requests;
+        if (outputVariant == "too-large") {
+            respond(socket, 413, "{\"message\":\"file too large\"}");
+            return;
+        }
         const QByteArray path = header.split(' ').value(1);
         const QByteArray expectedAuth = "Basic " + QByteArray("api:test-key").toBase64();
         QByteArray actualAuth;
@@ -70,11 +84,12 @@ private:
                 actualAuth = line.mid(separator + 1).trimmed();
         }
         if (path == "/store") {
+            uploadTimes.append(uploadClock.elapsed());
             noWebAuth &= !header.toLower().contains("authorization:");
             const int task = id(body);
+            if (task >= 0) ++attempts[task];
             if (batching && task >= 0) {
                 for (int earlier = 0; earlier < (task / 10) * 10; ++earlier) barriersHeld &= terminal.contains(earlier);
-                ++attempts[task];
             }
             ++active; maximumActive = qMax(maximumActive, active);
             const QString key = QString::number(++uploaded);
@@ -84,12 +99,21 @@ private:
             noWebAuth &= !header.toLower().contains("authorization:");
             const QJsonObject request = QJsonDocument::fromJson(body).object();
             const QByteArray original = stored.value(request.value("key").toString());
-            webTypesCorrect &= request.value("originalType").toString() == "image/svg+xml"
+            const QString type = request.value("originalType").toString();
+            webMimeTypes.append(type);
+            webTypesCorrect &= QStringList({"image/svg+xml", "image/avif", "image/jxl"}).contains(type)
                 && request.value("originalSize").toInt() == original.size();
             const int task = id(original);
             QByteArray optimized; QString error;
-            const bool valid = Utility::optimizeSvg(original, optimized, error);
-            if (failAll || (batching && (task == 1 || (task == 0 && attempts.value(task) <= 2))) || !valid) {
+            bool valid = false;
+            if (type == "image/svg+xml") valid = Utility::optimizeSvg(original, optimized, error);
+            else if (type == "image/avif" && original.startsWith("fixture-avif")) {
+                optimized = "compressed-avif"; valid = true;
+            } else if (type == "image/jxl" && original.startsWith("fixture-jxl")) {
+                optimized = "compressed-jxl"; valid = true;
+            }
+            if (failAll || (transientAll && attempts.value(task) == 1)
+                || (batching && (task == 1 || (task == 0 && attempts.value(task) <= 2))) || !valid) {
                 --active;
                 if (batching && attempts.value(task) == 3) terminal.insert(task);
                 respond(socket, 503, "{\"message\":\"simulated failure\"}");

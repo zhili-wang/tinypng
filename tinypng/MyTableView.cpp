@@ -145,7 +145,7 @@ void MyTableView::paintEvent(QPaintEvent* event) {
         title.setPixelSize(12);
         painter.setFont(title);
         painter.setPen(Theme::instance()->color("#8a9c90", "#a5bfaf"));
-        painter.drawText(QRect(0, textTop + 36, area.width(), 25), Qt::AlignCenter, "支持 PNG、JPG/JPEG、WebP、SVG · 或点击上方添加图片");
+        painter.drawText(QRect(0, textTop + 36, area.width(), 25), Qt::AlignCenter, "支持 PNG、JPG/JPEG、WebP、SVG、AVIF、JXL · 或点击上方添加图片");
     }
 }
 void MyTableView::resizeEvent(QResizeEvent* event) {

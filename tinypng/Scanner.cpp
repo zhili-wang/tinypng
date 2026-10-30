@@ -11,15 +11,16 @@ QString sizeDescription(qint64 bytes) {
 }
 }
 
-Scanner::Scanner(QObject* parent) : QThread(parent), minsize(0), maxsize(0) {
+Scanner::Scanner(QObject* parent) : QThread(parent), minsize(0), maxsize(0), mode(TinyReqMode::Web) {
     qRegisterMetaType<TableModelRow>();
 }
 Scanner::~Scanner() { stop(); }
-void Scanner::start(const QStringList& input, int minimum, int maximum) {
+void Scanner::start(const QStringList& input, int minimum, int maximum, TinyReqMode requestMode) {
     stop();
     files = input;
     minsize = minimum;
     maxsize = maximum;
+    mode = requestMode;
     QThread::start();
 }
 void Scanner::stop() {
@@ -34,11 +35,15 @@ void Scanner::addFile(const QString& root, const QString& path) {
     }
     if (!Utility::checkFileFormat(info.fileName())) {
         // Non-image files in a folder are expected; report explicitly selected files.
-        if (root.isEmpty()) emit fileSkipped(info.absoluteFilePath(), "不支持此格式；支持 PNG、JPG/JPEG、WebP 和 SVG。");
+        if (root.isEmpty()) emit fileSkipped(info.absoluteFilePath(), "不支持此格式；支持 PNG、JPG/JPEG、WebP、SVG、AVIF 和 JXL。");
         return;
     }
     if (info.size() == 0) {
         emit fileSkipped(info.absoluteFilePath(), "文件为空，无法压缩。");
+        return;
+    }
+    if (Utility::usesWebsite(info.fileName(), mode) && info.size() > Utility::webMaxFileSize()) {
+        emit fileSkipped(info.absoluteFilePath(), Utility::webSizeError(info.size()));
         return;
     }
     if (info.size() < minsize || info.size() > maxsize) {
