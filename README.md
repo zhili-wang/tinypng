@@ -6,9 +6,9 @@
 
 
 ##### 下载：
-- [Windows x64 安装包](https://github.com/zhili-wang/tinypng/releases/download/v1.2.1/TinyPNG-Windows-x64-1.2.1.exe)
-- [Windows x64 免安装版](https://github.com/zhili-wang/tinypng/releases/download/v1.2.1/TinyPNG-Windows-x64-1.2.1.zip)
-- [macOS 通用安装包（Intel / Apple Silicon）](https://github.com/zhili-wang/tinypng/releases/download/v1.2.1/TinyPNG-macOS-universal-1.2.1.dmg)
+- [Windows x64 安装包](https://github.com/zhili-wang/tinypng/releases/download/v1.2.2/TinyPNG-Windows-x64-1.2.2.exe)
+- [Windows x64 免安装版](https://github.com/zhili-wang/tinypng/releases/download/v1.2.2/TinyPNG-Windows-x64-1.2.2.zip)
+- [macOS 通用安装包（Intel / Apple Silicon）](https://github.com/zhili-wang/tinypng/releases/download/v1.2.2/TinyPNG-macOS-universal-1.2.2.dmg)
 - [查看全部版本](https://github.com/zhili-wang/tinypng/releases)
 
 ### 新版功能
@@ -66,7 +66,7 @@ make
 
 ### 安装包构建
 
-新版构建版本为 `1.2.2`。每次打包均使用新的构建目录，完整重新编译，不复用旧对象文件。GitHub Actions 中的 **Build installers** 可手动运行，生成 macOS 通用 DMG（Intel / Apple Silicon）和 Windows x64 安装 EXE、便携 ZIP；构建前会运行 SVG 渲染、失败项筛选和导入提示检查。构建产物保存在 Actions 的 Artifacts 中；已发布的 `1.2.1` 安装包可从上方下载链接或 [Releases](https://github.com/zhili-wang/tinypng/releases/tag/v1.2.1) 获取。
+新版构建版本为 `1.2.2`。每次打包均使用新的构建目录，完整重新编译，不复用旧对象文件。GitHub Actions 中的 **Build installers** 可手动运行，生成 macOS 通用 DMG（Intel / Apple Silicon）和 Windows x64 安装 EXE、便携 ZIP；构建前会运行 SVG 渲染、失败项筛选和导入提示检查。构建产物保存在 Actions 的 Artifacts 中；已发布的 `1.2.2` 安装包可从上方下载链接或 [Releases](https://github.com/zhili-wang/tinypng/releases/tag/v1.2.2) 获取。
 
 安装包统一存放在 `Installer/<版本号>/`，每个版本包含独立的 `SHA256SUMS.txt`。构建脚本和 CI 仅收集本次指定版本的产物。
 
