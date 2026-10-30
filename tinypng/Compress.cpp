@@ -66,8 +66,8 @@ void Compress::process(int taskRow, const QString& root, const QString& taskPath
         emitError("打开文件失败：" + file.errorString());
         return;
     }
-    if (usingWeb && file.size() > Utility::webMaxFileSize()) {
-        emitError(Utility::webSizeError(file.size()), false);
+    if (file.size() > Utility::maxFileSize()) {
+        emitError(Utility::sizeLimitError(file.size()), false);
         return;
     }
     const QByteArray binary = file.readAll();
@@ -76,8 +76,8 @@ void Compress::process(int taskRow, const QString& root, const QString& taskPath
         return;
     }
     file.close();
-    if (usingWeb && binary.size() > Utility::webMaxFileSize()) {
-        emitError(Utility::webSizeError(binary.size()), false);
+    if (binary.size() > Utility::maxFileSize()) {
+        emitError(Utility::sizeLimitError(binary.size()), false);
         return;
     }
     // Create all network objects in the worker thread.

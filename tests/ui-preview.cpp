@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
         window.resize(840, 740); capture(&window, "tinypng-queue-compact-" + suffix + ".png");
     }
     model->removeAll();
-    const QString warning = "已添加 0 张图片，1 个文件未添加。\nsample-jpg-files-sample_5184x3456.jpg：" + Utility::webSizeError(5554547);
+    const QString warning = "已添加 0 张图片，1 个文件未添加。\nsample-jpg-files-sample_5184x3456.jpg：" + Utility::sizeLimitError(5554547);
     for (ThemeMode mode : {ThemeMode::Light, ThemeMode::Dark}) {
         Theme::instance()->setMode(mode);
         config.themeMode = mode; Config(nullptr).set(config);
@@ -66,6 +66,7 @@ int main(int argc, char** argv) {
         for (auto* radio : settings->findChildren<QRadioButton*>()) if (radio->text() == "API KEY") radio->setChecked(true);
         capture(settings, "tinypng-settings-" + suffix + ".png");
         for (auto* spin : settings->findChildren<QSpinBox*>()) {
+            if (spin->maximum() != 5120 || spin->value() > 5120) return 11;
             auto* edit = spin->findChild<QLineEdit*>();
             if (edit->width() < 60 || edit->height() < edit->fontMetrics().height()) {
                 std::cerr << "Size input text is clipped\n"; return 4;

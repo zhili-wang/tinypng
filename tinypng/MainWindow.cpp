@@ -131,13 +131,11 @@ void MainWindow::refreshActions() {
 void MainWindow::refreshSizeHint() {
     const configItem config = Config(this).get();
     const QLocale locale(QLocale::English);
-    const int maximum = config.tinyReqMode == TinyReqMode::Web
-        ? qMin(config.maxsize, int(Utility::webMaxFileSize())) : config.maxsize;
     sizeRangeLabel->setText(QString("当前大小范围：%1 – %2 · %3")
         .arg(locale.formattedDataSize(config.minsize, 2, QLocale::DataSizeTraditionalFormat),
-             locale.formattedDataSize(maximum, 2, QLocale::DataSizeTraditionalFormat),
-             config.tinyReqMode == TinyReqMode::Web ? "官网免费模式：单张最多 5 MB" : "API KEY 模式 · SVG / JXL 单张最多 5 MB"));
-    sizeRangeLabel->setToolTip(QString("本地筛选范围：%1 至 %2 字节。官网免费模式（含 SVG / JXL）的单张上限为 5 MB，调大本地范围不会提高官网上限。")
+             locale.formattedDataSize(config.maxsize, 2, QLocale::DataSizeTraditionalFormat),
+             "所有模式与格式：单张最多 5 MB"));
+    sizeRangeLabel->setToolTip(QString("大小范围：%1 至 %2 字节。免 KEY、API KEY 及所有图片格式的单张上限均为 5 MB，设置不能超过此上限。")
         .arg(config.minsize).arg(config.maxsize));
 }
 void MainWindow::showImportNotice(const QString& message) {
@@ -235,7 +233,7 @@ void MainWindow::createScannner(const QStringList& files) {
     stateLabel->setText("正在读取图片");
     progressLabel->setText("扫描文件中…");
     progress->setValue(0);
-    scanner->start(files, config.minsize, config.maxsize, config.tinyReqMode);
+    scanner->start(files, config.minsize, config.maxsize);
     refreshActions();
 }
 void MainWindow::closeEvent(QCloseEvent* event) {

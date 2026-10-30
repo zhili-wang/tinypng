@@ -95,8 +95,8 @@ QCheckBox::indicator:checked { image: url(:/check-%1-checked.png); }
     sizes->setContentsMargins(0, 0, 0, 0);
     minSize = new SizeSpinBox;
     maxSize = new SizeSpinBox;
-    minSize->setRange(0, 200000);
-    maxSize->setRange(1, 200000);
+    minSize->setRange(0, int(Utility::maxFileSize() / 1024));
+    maxSize->setRange(1, int(Utility::maxFileSize() / 1024));
     minSize->setSuffix(" KB");
     maxSize->setSuffix(" KB");
     const auto spinControl = [](QSpinBox* spin, const QString& name) {
@@ -127,7 +127,7 @@ QCheckBox::indicator:checked { image: url(:/check-%1-checked.png); }
     sizes->addWidget(new QLabel("至"));
     sizes->addWidget(spinControl(maxSize, "maxSize"));
     form->addRow("大小范围", sizeRange);
-    QLabel* sizeHelp = new QLabel("官网免费模式单张最多 5 MB（5120 KB），调大此范围不会提高上限。\nSVG / JXL 始终遵守官网上限。超限文件会显示跳过原因。");
+    QLabel* sizeHelp = new QLabel("所有模式、所有图片格式单张最多 5 MB（5120 KB）。\n大小范围不能超过此上限，超限文件会显示跳过原因。");
     sizeHelp->setWordWrap(true);
     sizeHelp->setMinimumHeight(sizeHelp->fontMetrics().lineSpacing() * 4);
     sizeHelp->setObjectName("muted");
@@ -208,10 +208,6 @@ void SettingWindow::done(int result) {
 void SettingWindow::onClickSaveBtn() {
     if (minSize->value() > maxSize->value()) {
         QMessageBox::warning(this, "大小范围无效", "最小文件大小不能超过最大文件大小。");
-        return;
-    }
-    if (webMode->isChecked() && qint64(minSize->value()) * 1024 > Utility::webMaxFileSize()) {
-        QMessageBox::warning(this, "大小范围无效", "官网免费模式单张最多 5 MB，最小文件大小不能超过此上限。");
         return;
     }
     if (keyMode->isChecked() && keyInput->text().trimmed().isEmpty()) {

@@ -51,6 +51,13 @@ int main(int argc, char** argv) {
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, temp.path());
     check(Config(nullptr).qset->fileName().startsWith(temp.path()), "test preferences stay in temporary directory instead of user application settings");
     check(!Config(nullptr).get().autoRetry, "automatic retry defaults to disabled for existing or new settings");
+    Config legacy(nullptr);
+    legacy.qset->beginGroup("Property");
+    legacy.qset->setValue("maxsize", 6 * 1024 * 1024);
+    legacy.qset->setValue("minsize", 7 * 1024 * 1024);
+    legacy.qset->endGroup();
+    const auto migrated = Config(nullptr).get();
+    check(migrated.maxsize == Utility::maxFileSize() && migrated.minsize == migrated.maxsize, "old oversized settings are clamped into the global five MB range");
     configItem config{};
     config.outputMode = OutputMode::Replace;
     config.tinyReqMode = TinyReqMode::Web;
@@ -194,16 +201,22 @@ int main(int argc, char** argv) {
     const QString enlarged = temp.filePath("enlarged-after-import.JXL");
     writeFile(enlarged, "fixture-jxl-source"); model.addRow(rowFor(enlarged, 0));
     QFile enlargedFile(enlarged);
-    check(enlargedFile.open(QIODevice::ReadWrite) && enlargedFile.resize(Utility::webMaxFileSize() + 1), "queued JXL grows beyond website limit after import");
+    check(enlargedFile.open(QIODevice::ReadWrite) && enlargedFile.resize(Utility::maxFileSize() + 1), "queued JXL grows beyond website limit after import");
     enlargedFile.close(); runBatch(false);
     check(model.getRow(0).status == -1 && service.requests == 0, "upload guard rejects enlarged website image before any network call");
-    check(QFileInfo(enlarged).size() == Utility::webMaxFileSize() + 1 && !console.toPlainText().contains("自动重试 1/2"), "permanent size rejection preserves original and avoids automatic retries");
+    check(QFileInfo(enlarged).size() == Utility::maxFileSize() + 1 && !console.toPlainText().contains("自动重试 1/2"), "permanent size rejection preserves original and avoids automatic retries");
+    model.removeAll(); service.reset();
+    const QString enlargedApi = temp.filePath("enlarged-after-import.AVIF");
+    QFile apiOversize(enlargedApi);
+    check(apiOversize.open(QIODevice::WriteOnly) && apiOversize.resize(Utility::maxFileSize() + 1), "oversized developer API fixture created");
+    apiOversize.close(); model.addRow(rowFor(enlargedApi, 0)); runBatch(false);
+    check(model.getRow(0).status == -1 && service.requests == 0 && QFileInfo(enlargedApi).size() == Utility::maxFileSize() + 1, "API KEY AVIF upload uses the global limit before any network call and preserves the file");
     model.removeAll(); service.reset(); console.clear();
     config.tinyReqMode = TinyReqMode::Web; Config(nullptr).set(config);
     const QString boundary = temp.filePath("exact-five-mb.JXL");
     writeFile(boundary, "fixture-jxl-source");
     QFile boundaryFile(boundary);
-    check(boundaryFile.open(QIODevice::ReadWrite) && boundaryFile.resize(Utility::webMaxFileSize()), "exact website size boundary created");
+    check(boundaryFile.open(QIODevice::ReadWrite) && boundaryFile.resize(Utility::maxFileSize()), "exact website size boundary created");
     boundaryFile.close(); model.addRow(rowFor(boundary, 0)); runBatch(false);
     check(model.getRow(0).status == 2 && service.uploaded == 1, "website upload accepts exactly five MB");
     model.removeAll(); service.reset(); console.clear(); service.outputVariant = "too-large";
@@ -307,7 +320,7 @@ int main(int argc, char** argv) {
     writeFile(empty, QByteArray());
     writeFile(text, "not an image");
     struct ScanResult { QList<TableModelRow> rows; QMap<QString, QString> skipped; };
-    auto scanPaths = [&](const QStringList& paths, int minBytes, int maxBytes, TinyReqMode mode = TinyReqMode::Web) {
+    auto scanPaths = [&](const QStringList& paths, int minBytes, int maxBytes) {
         ScanResult result;
         Scanner reader;
         QEventLoop loop;
@@ -316,7 +329,7 @@ int main(int argc, char** argv) {
         QObject::connect(&reader, &Scanner::fileSkipped, &loop, [&](const QString& path, const QString& reason) { result.skipped.insert(path, reason); }, Qt::QueuedConnection);
         QObject::connect(&reader, &QThread::finished, &loop, [&]() { completed = true; loop.quit(); });
         QTimer::singleShot(10000, &loop, &QEventLoop::quit);
-        reader.start(paths, minBytes, maxBytes, mode);
+        reader.start(paths, minBytes, maxBytes);
         loop.exec();
         reader.stop();
         check(completed, "import scan completes without timeout");
@@ -347,16 +360,14 @@ int main(int argc, char** argv) {
     const QString oversizedSvg = importDir + "/oversized.SVG", oversizedJxl = importDir + "/oversized.JXL", oversizedAvif = importDir + "/oversized.AVIF";
     for (const QString& path : {oversizedSvg, oversizedJxl, oversizedAvif}) {
         QFile file(path);
-        check(file.open(QIODevice::WriteOnly) && file.resize(Utility::webMaxFileSize() + 1), "new format oversized fixture created");
+        check(file.open(QIODevice::WriteOnly) && file.resize(Utility::maxFileSize() + 1), "new format oversized fixture created");
     }
     const QStringList oversizedPaths = {hugeJpg, oversizedSvg, oversizedJxl, oversizedAvif};
     const auto webLimit = scanPaths(oversizedPaths, 0, 6 * 1024 * 1024);
     check(webLimit.rows.isEmpty() && webLimit.skipped.size() == 4, "website rejects oversized images of all new and existing formats even with a larger local limit");
-    const auto apiLimit = scanPaths(oversizedPaths, 0, 6 * 1024 * 1024, TinyReqMode::Key);
-    check(apiLimit.rows.size() == 2 && apiLimit.skipped.contains(oversizedSvg) && apiLimit.skipped.contains(oversizedJxl), "KEY mode keeps website cap for SVG JXL while accepting larger JPG AVIF for API");
     const QString exactLimit = importDir + "/exact-limit.JXL";
     QFile exactFile(exactLimit);
-    check(exactFile.open(QIODevice::WriteOnly) && exactFile.resize(Utility::webMaxFileSize()), "import boundary fixture created");
+    check(exactFile.open(QIODevice::WriteOnly) && exactFile.resize(Utility::maxFileSize()), "import boundary fixture created");
     exactFile.close();
     check(scanPaths({exactLimit}, 0, 6 * 1024 * 1024).rows.size() == 1, "import includes exactly five MB");
     config.autoRetry = false; Config(nullptr).set(config);
@@ -393,7 +404,7 @@ int main(int argc, char** argv) {
     waitForImport();
     check(window.table->model()->rowCount() == 1, "mixed drop adds the valid JPG and skips the oversized JPG");
     check(notice && notice->isVisible() && notice->text().contains("over-five-megabytes.JPG")
-        && notice->text().contains("官网免费模式") && !notice->text().contains("可在“设置"), "oversized JPG explains fixed website limit without suggesting settings can bypass it");
+        && notice->text().contains("本程序单张上限") && !notice->text().contains("可在“设置"), "oversized JPG explains fixed program limit without suggesting settings can bypass it");
     check(notice->textFormat() == Qt::PlainText, "import notices render filenames as plain text");
     check(window.console->toPlainText().contains("5242881") && window.console->toPlainText().contains("5242880"), "activity log records precise actual and configured size");
     dropUrls({QUrl::fromLocalFile(hugeJpg)});
@@ -416,13 +427,14 @@ int main(int argc, char** argv) {
         if (spin->value() == 5120) spin->setValue(6144);
     }
     check(QMetaObject::invokeMethod(settings, "onClickSaveBtn", Qt::DirectConnection), "size range setting saves");
-    check(Config(nullptr).get().maxsize == 6 * 1024 * 1024, "settings update the maximum import size");
+    check(Config(nullptr).get().maxsize == Utility::maxFileSize(), "settings cannot increase maximum beyond five MB");
+    for (QSpinBox* spin : settings->findChildren<QSpinBox*>()) check(spin->maximum() == 5120, "both size fields cap keyboard and step controls at 5120 KB");
     check(Config(nullptr).get().autoRetry, "retry switch persists when enabled");
     QLabel* sizeHint = window.findChild<QLabel*>("sizeRangeLabel");
     check(sizeHint && sizeHint->text().contains("5.00 MB") && sizeHint->text().contains("单张最多 5 MB"), "website hint stays at service limit when local range is increased");
     dropUrls({QUrl::fromLocalFile(hugeJpg)});
     waitForImport();
-    check(window.table->model()->rowCount() == 1 && notice->isVisible() && notice->text().contains("官网免费模式"), "increasing local limit cannot bypass website limit or erase the queue");
+    check(window.table->model()->rowCount() == 1 && notice->isVisible() && notice->text().contains("本程序单张上限"), "increasing local limit cannot bypass global limit or erase the queue");
     auto* noticeBox = window.findChild<QFrame*>("importNoticeBox");
     auto* closeNotice = window.findChild<QPushButton*>("closeNotice");
     check(noticeBox && closeNotice, "import notice has a dismissible container");
@@ -472,7 +484,7 @@ int main(int argc, char** argv) {
         QLineEdit* edit = spin->findChild<QLineEdit*>();
         check(edit->width() >= 60 && edit->height() >= edit->fontMetrics().height(), "size input digits and suffix have a complete text rectangle in dark mode");
         edit->setText(spin->objectName() == "maxSize" ? "8192 KB" : "1 KB"); spin->interpretText();
-        check(spin->value() == (spin->objectName() == "maxSize" ? 8192 : 1), "size input keeps manual numeric editing");
+        check(spin->value() == (spin->objectName() == "maxSize" ? 5120 : 1), "manual numeric editing clamps values above five MB");
     }
     Theme::instance()->setMode(ThemeMode::Light); app.processEvents();
     for (QSpinBox* spin : apiSettings->findChildren<QSpinBox*>()) check(spin->findChild<QLineEdit*>()->width() >= 60, "theme change preserves size input text geometry");

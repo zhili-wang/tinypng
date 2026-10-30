@@ -51,10 +51,10 @@ QString Utility::imageMimeType(const QString& path) {
     return "image/jpeg";
 }
 
-QString Utility::webSizeError(qint64 bytes) {
-    return QString("文件大小 %1（%2 字节），超过 TinyPNG 官网免费模式的单张上限 5 MB（%3 字节）。请先减小图片；调大本地“大小范围”不会提高官网上限。")
+QString Utility::sizeLimitError(qint64 bytes) {
+    return QString("文件大小 %1（%2 字节），超过本程序单张上限 5 MB（%3 字节）。请先减小图片；所有模式、所有格式均遵守此上限。")
         .arg(QLocale(QLocale::English).formattedDataSize(bytes, 2, QLocale::DataSizeTraditionalFormat))
-        .arg(bytes).arg(webMaxFileSize());
+        .arg(bytes).arg(maxFileSize());
 }
 
 bool Utility::optimizeSvg(const QByteArray& input, QByteArray& output, QString& error) {

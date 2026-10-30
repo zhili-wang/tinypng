@@ -11,16 +11,15 @@ QString sizeDescription(qint64 bytes) {
 }
 }
 
-Scanner::Scanner(QObject* parent) : QThread(parent), minsize(0), maxsize(0), mode(TinyReqMode::Web) {
+Scanner::Scanner(QObject* parent) : QThread(parent), minsize(0), maxsize(0) {
     qRegisterMetaType<TableModelRow>();
 }
 Scanner::~Scanner() { stop(); }
-void Scanner::start(const QStringList& input, int minimum, int maximum, TinyReqMode requestMode) {
+void Scanner::start(const QStringList& input, int minimum, int maximum) {
     stop();
     files = input;
     minsize = minimum;
     maxsize = maximum;
-    mode = requestMode;
     QThread::start();
 }
 void Scanner::stop() {
@@ -42,8 +41,8 @@ void Scanner::addFile(const QString& root, const QString& path) {
         emit fileSkipped(info.absoluteFilePath(), "文件为空，无法压缩。");
         return;
     }
-    if (Utility::usesWebsite(info.fileName(), mode) && info.size() > Utility::webMaxFileSize()) {
-        emit fileSkipped(info.absoluteFilePath(), Utility::webSizeError(info.size()));
+    if (info.size() > Utility::maxFileSize()) {
+        emit fileSkipped(info.absoluteFilePath(), Utility::sizeLimitError(info.size()));
         return;
     }
     if (info.size() < minsize || info.size() > maxsize) {

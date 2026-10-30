@@ -16,6 +16,8 @@ Config::Config(QObject* parent) : QObject(parent) {
     qset->endGroup();
 }
 void Config::set(configItem item) {
+    item.maxsize = item.maxsize <= 0 ? int(Utility::maxFileSize()) : qMin(item.maxsize, int(Utility::maxFileSize()));
+    item.minsize = qBound(0, item.minsize, item.maxsize);
     qset->beginGroup("Property");
     qset->setValue("mail", item.mail);
     qset->setValue("key", item.key);
@@ -36,8 +38,12 @@ configItem Config::get() {
     item.key = qset->value("key").toString();
     item.proxy = qset->value("proxy").toString();
     item.minsize = qset->value("minsize", 0).toInt();
-    item.maxsize = qset->value("maxsize", int(Utility::webMaxFileSize())).toInt();
-    if (item.maxsize <= 0) item.maxsize = int(Utility::webMaxFileSize());
+    item.maxsize = qset->value("maxsize", int(Utility::maxFileSize())).toInt();
+    if (item.maxsize <= 0) item.maxsize = int(Utility::maxFileSize());
+    item.maxsize = qMin(item.maxsize, int(Utility::maxFileSize()));
+    item.minsize = qBound(0, item.minsize, item.maxsize);
+    qset->setValue("maxsize", item.maxsize);
+    qset->setValue("minsize", item.minsize);
     item.outputMode = qset->value("outputMode", int(OutputMode::Replace)).toInt() == 1 ? OutputMode::Replace : OutputMode::NewDir;
     item.tinyReqMode = qset->value("tinyReqMode", 0).toInt() == 1 ? TinyReqMode::Key : TinyReqMode::Web;
     item.autoStart = qset->value("autostart", true).toBool();
