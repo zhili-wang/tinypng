@@ -1,8 +1,8 @@
 # 安装包目录
 
-安装包按版本存放，例如 `Installer/1.2.0/`。每个版本目录包含对应的 macOS DMG、Windows EXE/ZIP 和 `SHA256SUMS.txt`，历史版本分别保留。
+安装包按版本存放，当前仅保留最新版 `Installer/1.2.3/`，包含 macOS 通用 DMG、Windows EXE/ZIP 和 `SHA256SUMS.txt`。历史版本保留在 [GitHub Releases](https://github.com/zhili-wang/tinypng/releases)，仓库目录中不再存放旧安装包和旧校验文件。
 
-构建脚本自动生成 `Installer/<版本号>/` 并更新该目录的校验文件。同一版本的不同平台包可以放在一起；从 CI 下载补充产物后，运行 `python3 scripts/package-checksums.py Installer/<版本号>` 更新完整校验文件。
+构建脚本自动生成 `Installer/<版本号>/` 并更新该目录的校验文件。同一版本的不同平台包可以放在一起；从 CI 下载补充产物后，运行 `python3 scripts/package-checksums.py Installer/<版本号>` 更新完整校验文件。新版本验证并发布后，清理旧版本目录，仅保留最新版。
 
 已公开发布的安装包从 [GitHub Releases](https://github.com/zhili-wang/tinypng/releases) 下载。
 

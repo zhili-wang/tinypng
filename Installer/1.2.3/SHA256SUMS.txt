@@ -1,0 +1,3 @@
+9fec38eaba50fac2adfbe66fbe7b303d74d5924ed4879ac9d6a9e54bcb716dae  TinyPNG-Windows-x64-1.2.3.exe
+019d47d07ef78c8b796798e7896795700b056b80f2b41dfea66d90286b676d06  TinyPNG-Windows-x64-1.2.3.zip
+de55a49851ea8a3146b7e06a81ff73ad6bde0bb3c72ae56782399929446631d1  TinyPNG-macOS-universal-1.2.3.dmg

@@ -80,7 +80,7 @@ make
 
 新版构建版本为 `1.2.3`。每次打包均使用新的构建目录，完整重新编译，不复用旧对象文件。GitHub Actions 中的 **Build installers** 可手动运行，生成 macOS 通用 DMG（Intel / Apple Silicon）和 Windows x64 安装 EXE、便携 ZIP；构建前会运行 SVG 渲染、失败项筛选和导入提示检查。构建产物保存在 Actions 的 Artifacts 中；已发布的 `1.2.3` 安装包可从上方下载链接或 [Releases](https://github.com/zhili-wang/tinypng/releases/tag/v1.2.3) 获取。
 
-安装包统一存放在 `Installer/<版本号>/`，每个版本包含独立的 `SHA256SUMS.txt`。构建脚本和 CI 仅收集本次指定版本的产物。
+安装包统一存放在 `Installer/<版本号>/`，当前仅保留最新版 `Installer/1.2.3/` 及其 `SHA256SUMS.txt`。历史版本从 [GitHub Releases](https://github.com/zhili-wang/tinypng/releases) 下载。构建脚本和 CI 仅收集本次指定版本的产物；新版本发布后清理旧安装包目录。
 
 本地 macOS 构建需要完整 Qt SDK（含 Qt SVG 模块）：
 
