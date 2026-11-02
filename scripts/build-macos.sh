@@ -3,7 +3,7 @@ set -euo pipefail
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 qt_root="${1:-${TINYPNG_QT_DIR:-}}"
-version="${TINYPNG_VERSION:-1.2.2}"
+version="${TINYPNG_VERSION:-1.2.3}"
 architectures="${TINYPNG_MAC_ARCHS:-$(uname -m)}"
 if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "无效版本号：$version" >&2; exit 1; fi
 if [[ -n "$qt_root" ]]; then
@@ -58,6 +58,7 @@ stage="$(mktemp -d "$build_root/dmg-stage.XXXXXX")"
 trap 'rm -rf "$stage"' EXIT
 cp -R "$build_root/TinyPNG.app" "$stage/"
 ln -s /Applications "$stage/Applications"
+cp "$project_root/Installer/macos-first-launch.html" "$stage/首次打开指南.html"
 package="$installer_root/TinyPNG-macOS-$arch_label-$version.dmg"
 hdiutil create -volname TinyPNG -srcfolder "$stage" -ov -format UDZO "$package"
 hdiutil verify "$package"

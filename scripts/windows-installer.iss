@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "1.2.2"
+  #define AppVersion "1.2.3"
 #endif
 #define StageDir GetEnv("TINYPNG_STAGE")
 #define InstallerDir GetEnv("TINYPNG_INSTALLER_DIR")

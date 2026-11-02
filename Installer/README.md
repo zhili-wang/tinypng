@@ -5,3 +5,5 @@
 构建脚本自动生成 `Installer/<版本号>/` 并更新该目录的校验文件。同一版本的不同平台包可以放在一起；从 CI 下载补充产物后，运行 `python3 scripts/package-checksums.py Installer/<版本号>` 更新完整校验文件。
 
 已公开发布的安装包从 [GitHub Releases](https://github.com/zhili-wang/tinypng/releases) 下载。
+
+macOS DMG 构建时会附带“首次打开指南.html”（源文件为 `macos-first-launch.html`）。首次打开被系统阻止时，按指南进入“系统设置 → 隐私与安全性”，找到 TinyPNG 后点击“仍要打开”，并完成系统确认。指南可离线阅读，内含打开设置的快捷入口；详细步骤见[项目说明](../README.md#macos-首次打开)。

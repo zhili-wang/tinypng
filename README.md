@@ -6,13 +6,25 @@
 
 
 ##### 下载：
-- [Windows x64 安装包](https://github.com/zhili-wang/tinypng/releases/download/v1.2.2/TinyPNG-Windows-x64-1.2.2.exe)
-- [Windows x64 免安装版](https://github.com/zhili-wang/tinypng/releases/download/v1.2.2/TinyPNG-Windows-x64-1.2.2.zip)
-- [macOS 通用安装包（Intel / Apple Silicon）](https://github.com/zhili-wang/tinypng/releases/download/v1.2.2/TinyPNG-macOS-universal-1.2.2.dmg)
+- [Windows x64 安装包](https://github.com/zhili-wang/tinypng/releases/download/v1.2.3/TinyPNG-Windows-x64-1.2.3.exe)
+- [Windows x64 免安装版](https://github.com/zhili-wang/tinypng/releases/download/v1.2.3/TinyPNG-Windows-x64-1.2.3.zip)
+- [macOS 通用安装包（Intel / Apple Silicon）](https://github.com/zhili-wang/tinypng/releases/download/v1.2.3/TinyPNG-macOS-universal-1.2.3.dmg)
 - [查看全部版本](https://github.com/zhili-wang/tinypng/releases)
+
+### macOS 首次打开
+
+1. 打开下载的 DMG，将 **TinyPNG.app** 拖到 **Applications（应用程序）**，再从“应用程序”中打开 TinyPNG。
+2. 如果出现“Apple 无法验证 TinyPNG”或“已阻止 TinyPNG 以保护 Mac”，先关闭提示。
+3. 打开 ** → 系统设置 → 隐私与安全性**，向下滚动到“安全性”区域。
+4. 找到 TinyPNG 的阻止提示，点击 **“仍要打开”**，按系统提示使用 Touch ID 或输入 Mac 登录密码，再点击 **“打开”**。
+
+如果没有看到“仍要打开”，请再尝试打开一次“应用程序”中的 TinyPNG，然后立即回到“隐私与安全性”。该按钮通常只会在被阻止后的约一小时内显示。只对你确认来源可信的 TinyPNG 执行此操作；通常仅首次打开需要确认。
+
+新构建的 DMG 内附 **“首次打开指南.html”**，可离线查看完整步骤，并通过按钮打开“隐私与安全性”。Apple 官方说明：[在 Mac 上安全地打开 App](https://support.apple.com/zh-cn/102445)。
 
 ### 新版功能
 
+- **macOS 首次打开引导**：DMG 内附离线指南，提供打开“隐私与安全性”的快捷入口，以及“仍要打开”、系统确认和按钮未显示时的处理步骤。下载说明同步增加安装指引。
 - **JPG/JPEG 与导入提示**：支持 `.jpg`、`.JPG`、`.jpeg` 等扩展名。队列上方显示当前大小范围，默认最大 `5120 KB`（`5 MB`，即 `5 × 1024 × 1024` 字节）；可在“设置 → 大小范围”中调整。超出范围、空文件、不支持的格式或无法读取的文件会显示跳过原因，并在活动记录中保留文件名、实际大小和限制。全部文件被拒绝时保留原队列。网页链接或混合拖入文件夹和图片也会给出提示。免 KEY、API KEY 以及所有图片格式统一限制每张最多 5 MB（5242880 字节）。设置中的最小/最大值均不能超过 5120 KB，旧配置中的超限值会自动修正，导入和上传前也会检查。超限提示不会建议调大设置。
 - **SVG / JXL 官网压缩**：支持选择文件、拖拽和递归扫描文件夹，接入官网 `store → process → download` 压缩流程。SVG 和 JXL 始终使用网页接口，无需 API KEY。AVIF 根据设置使用网页或开发者 API 接口，所有格式均支持大小写扩展名。
 - **批量排队与自动重试**：每批最多 10 张并发，当前批次全部完成后再开始下一批。设置中提供“失败时自动重试（最多 2 次）”开关，默认关闭。开启后每张失败图片最多再重试 2 次（共最多 3 次尝试），分别等待 1 秒、2 秒；等待重试时仍占用当前批次名额。超过官网大小上限或收到 HTTP 413 不会自动重试。本批至少 3 张不同图片请求失败时，自动降低访问频率：按 2–5 秒间隔排队重试，后续批次等待 2–5 秒后开始，并将并发降至最多 3 张。关闭自动重试时仍会对后续批次降速。暂停会取消等待中的重试，进度只统计最终结果。
@@ -66,7 +78,7 @@ make
 
 ### 安装包构建
 
-新版构建版本为 `1.2.2`。每次打包均使用新的构建目录，完整重新编译，不复用旧对象文件。GitHub Actions 中的 **Build installers** 可手动运行，生成 macOS 通用 DMG（Intel / Apple Silicon）和 Windows x64 安装 EXE、便携 ZIP；构建前会运行 SVG 渲染、失败项筛选和导入提示检查。构建产物保存在 Actions 的 Artifacts 中；已发布的 `1.2.2` 安装包可从上方下载链接或 [Releases](https://github.com/zhili-wang/tinypng/releases/tag/v1.2.2) 获取。
+新版构建版本为 `1.2.3`。每次打包均使用新的构建目录，完整重新编译，不复用旧对象文件。GitHub Actions 中的 **Build installers** 可手动运行，生成 macOS 通用 DMG（Intel / Apple Silicon）和 Windows x64 安装 EXE、便携 ZIP；构建前会运行 SVG 渲染、失败项筛选和导入提示检查。构建产物保存在 Actions 的 Artifacts 中；已发布的 `1.2.3` 安装包可从上方下载链接或 [Releases](https://github.com/zhili-wang/tinypng/releases/tag/v1.2.3) 获取。
 
 安装包统一存放在 `Installer/<版本号>/`，每个版本包含独立的 `SHA256SUMS.txt`。构建脚本和 CI 仅收集本次指定版本的产物。
 

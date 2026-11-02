@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>TinyPNG · macOS 首次打开指南</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --background: #f5f6f8;
+      --surface: #fff;
+      --text: #20252b;
+      --secondary: #5b6470;
+      --border: #dce1e7;
+      --accent: #166542;
+      --soft: #eaf5ef;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 48px 24px;
+      background: var(--background);
+      color: var(--text);
+      font: 16px/1.75 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    main {
+      max-width: 760px;
+      margin: auto;
+      padding: 40px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: var(--surface);
+    }
+    .brand { margin: 0 0 12px; color: var(--accent); font-weight: 700; }
+    h1 { margin: 0 0 16px; font-size: 30px; line-height: 1.4; letter-spacing: -.5px; }
+    h2 { margin: 28px 0 12px; font-size: 20px; }
+    p { margin: 0 0 16px; }
+    .intro, .hint, footer { color: var(--secondary); }
+    ol { margin: 0; padding-left: 26px; }
+    li { margin-bottom: 16px; padding-left: 8px; }
+    li::marker { color: var(--accent); font-weight: 700; }
+    li p { margin: 4px 0 0; color: var(--secondary); }
+    .path {
+      margin: 20px 0 16px;
+      padding: 16px 20px;
+      border-radius: 12px;
+      background: var(--soft);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    a { color: var(--accent); text-underline-offset: 3px; }
+    .button {
+      display: inline-block;
+      padding: 10px 20px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    a:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+    .hint { margin-top: 12px; font-size: 14px; }
+    footer { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 14px; }
+    footer p:last-child { margin-bottom: 0; }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background: #15191d;
+        --surface: #20262c;
+        --text: #f2f5f7;
+        --secondary: #b7c0cb;
+        --border: #39434d;
+        --accent: #91dfb6;
+        --soft: #233c31;
+      }
+      .button { color: #153a28; }
+    }
+    @media (max-width: 520px) {
+      body { padding: 16px; }
+      main { padding: 24px 20px; border-radius: 16px; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="brand">TinyPNG / macOS</p>
+      <h1>首次打开，需要在系统设置中确认</h1>
+      <p class="intro">如果 macOS 提示“Apple 无法验证 TinyPNG”或“已阻止 TinyPNG 以保护 Mac”，请按以下步骤允许打开。通常仅首次打开需要确认。</p>
+    </header>
+
+    <ol aria-label="安装与首次打开步骤">
+      <li>
+        <strong>将 TinyPNG 拖到 Applications（应用程序）</strong>
+        <p>回到 DMG 窗口，将 TinyPNG.app 拖到 Applications 文件夹，再从“应用程序”中打开 TinyPNG。</p>
+      </li>
+      <li>
+        <strong>出现阻止提示后，先关闭提示</strong>
+        <p>接着打开“系统设置”，进入“隐私与安全性”，向下滚动到“安全性”区域。</p>
+      </li>
+      <li>
+        <strong>找到 TinyPNG，点击“仍要打开”</strong>
+        <p>你会看到“已阻止 ‘TinyPNG’ 以保护 Mac”等提示，右侧有“仍要打开”按钮。</p>
+      </li>
+      <li>
+        <strong>完成系统确认，然后点击“打开”</strong>
+        <p>按提示使用 Touch ID 或输入 Mac 登录密码，随后在确认窗口点击“打开”，即可启动 TinyPNG。</p>
+      </li>
+    </ol>
+
+    <nav aria-label="系统设置入口">
+      <p class="path"> → 系统设置 → 隐私与安全性 → 安全性 → 仍要打开</p>
+      <a class="button" href="x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension">打开“隐私与安全性”</a>
+      <p class="hint">浏览器若询问是否允许打开“系统设置”，请选择允许。如果按钮没有响应，请按上面的路径手动打开。</p>
+    </nav>
+
+    <section aria-labelledby="missing-button">
+      <h2 id="missing-button">没有看到“仍要打开”？</h2>
+      <p>再尝试打开一次“应用程序”中的 TinyPNG，然后立即回到“系统设置 → 隐私与安全性”，向下滚动查看“安全性”区域。该按钮通常只会在被阻止后的约一小时内显示。</p>
+    </section>
+
+    <footer>
+      <p>请只对你确认来源可信的 TinyPNG 执行此操作。</p>
+      <p>Apple 官方说明：<a href="https://support.apple.com/zh-cn/102445">在 Mac 上安全地打开 App</a>（需要联网）。本指南的操作步骤可离线阅读。</p>
+    </footer>
+  </main>
+</body>
+</html>
